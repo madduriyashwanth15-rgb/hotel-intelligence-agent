@@ -22,6 +22,10 @@ are appended at the end; superseded decisions are marked, never deleted.
 | [0015](#adr-0015--sql-safety-pipeline) | SQL safety pipeline | Accepted | 2026-10-07 |
 | [0016](#adr-0016--sql-generator-interface-and-deterministic-fakes) | SQL generator interface and deterministic fakes | Accepted | 2026-10-07 |
 | [0017](#adr-0017--business-date-and-metric-glossary) | Business date and metric glossary | Accepted | 2026-10-07 |
+| [0018](#adr-0018--mcp-tool-server-as-a-thin-boundary-over-a-tool-gateway) | MCP tool server as a thin boundary over a tool gateway | Accepted | 2026-10-07 |
+| [0019](#adr-0019--tool-classification-and-human-approval-workflow) | Tool classification and human approval workflow | Accepted | 2026-10-07 |
+| [0020](#adr-0020--staff-principals-authorization-and-hotel-scoping) | Staff principals, authorization and hotel scoping | Accepted | 2026-10-07 |
+| [0021](#adr-0021--simulated-refund-policy-engine-and-cancellation-refunds) | Simulated refund policy engine and cancellation refunds | Accepted | 2026-10-07 |
 
 Template for new entries: **Context → Decision → Consequences**, with Status and Date.
 
@@ -517,4 +521,112 @@ clear code. Swapping in a model later changes only the generator.
     **last week / last month** = the previous full calendar week / month.
 - October-to-date revenue is currently ₹0 because no October nights have been posted
   yet; answers state this explicitly instead of returning a bare zero.
+
+---
+
+## ADR-0018 — MCP tool server as a thin boundary over a tool gateway
+
+- Status: Accepted (Phase 4 approved by owner 2026-10-07)
+- Date: 2026-10-07
+
+### Context
+Phase 4 exposes simulated hotel operations to a future agent through MCP. The tool layer
+must be verifiable without an LLM and must not open network services.
+
+### Decision
+- Use the official **MCP Python SDK** (`mcp`, MIT) with **stdio transport only**; no HTTP
+  listener is started. The SDK's other dependencies (starlette, uvicorn, httpx2, pyjwt,
+  …) are installed but unused for transport.
+- All logic lives in a plain-Python **ToolGateway** (`hotel_agent/ops/`): tool registry,
+  argument schemas (pydantic, `extra="forbid"`), authorization, approval workflow, audit.
+  The MCP server only translates MCP calls to `ToolGateway.call(principal, name, args)`.
+- Testing: gateway tests without MCP; MCP tests through the SDK's in-memory client session;
+  one stdio smoke test that starts the real `hotel-mcp` process. No LLM anywhere.
+- No agent is built in Phase 4; MCP itself is the integration point for Phase 5.
+
+### Consequences
+- The same gateway can back other front ends (CLI, HTTP) without duplicating rules.
+- Coverage is measured with `pytest-cov` (dev dependency, MIT).
+
+---
+
+## ADR-0019 — Tool classification and human approval workflow
+
+- Status: Accepted
+- Date: 2026-10-07
+
+### Decision
+- Every tool is classified **READ_ONLY** or **MUTATING**; tools touching money or guest
+  stays are additionally flagged **SENSITIVE**.
+- READ_ONLY tools run inside `SET TRANSACTION READ ONLY` transactions.
+- MUTATING tools **never execute in the model's call**. They validate, authorize and create
+  an `approval_requests` row (status `pending`, immutable arguments + SHA-256, 30-minute
+  expiry) and return its id. Nothing else happens.
+- Approval is a **human-only channel** (`hotel-ops approvals approve|reject`), not exposed
+  through MCP. The approver must be an active staff member of the same hotel with authority
+  for that tool (and amount), and must not be the requester (four-eyes, also a database
+  CHECK). Approval executes the action **exactly once** inside one transaction (row lock +
+  status transition), re-validating against current data; failures are recorded.
+- The model can only read the outcome with `get_approval_status`.
+
+### Consequences
+A compromised or confused model can at most create pending requests (capped per session)
+that a human must explicitly approve.
+
+---
+
+## ADR-0020 — Staff principals, authorization and hotel scoping
+
+- Status: Accepted
+- Date: 2026-10-07
+
+### Decision
+- **Principals** are synthetic staff members (`staff_members`: staff_code, role, hotel_id,
+  is_active), generated deterministically with the dataset (generator 1.1.0, role-based
+  display names, no real people).
+- The MCP session principal is fixed when the server is launched (`hotel-mcp --staff-code`)
+  and cannot be changed by tool arguments. **There is no authentication** in Phase 4: the
+  local launcher asserts identity. This is a simulation boundary, not production auth.
+- Roles: `front_desk`, `housekeeping`, `housekeeping_supervisor`, `front_office_manager`,
+  `duty_manager`, `general_manager`, with an explicit per-tool permission matrix (deny by
+  default).
+- **Hotel scoping**: every query is filtered by the principal's `hotel_id`; arguments never
+  carry a hotel id (unknown fields are rejected). Other hotels' data is reported as not
+  found (no existence oracle).
+- **Database least privilege**: tools run as login role `hotel_ops` (OPS_DB_USER /
+  OPS_DB_PASSWORD) with SELECT on the needed tables — on `guests` only the columns `id`,
+  `first_name`, `last_name`, `loyalty_tier` (no email/phone; names are used only to verify
+  a lookup and to derive initials) — INSERT
+  on `housekeeping_tasks`, `approval_requests`, `refunds`, and column-limited UPDATE on
+  `approval_requests` and `reservations(status, cancelled_at)`. No DELETE, no DDL.
+- **PII minimisation**: reservation lookups require confirmation code **and** guest last
+  name (SOP-PRIVACY-001) and return initials + loyalty tier only. Repeated failed lookups
+  lock the lookup tools for the session (anti-enumeration).
+- **Audit**: JSON log events for request, authorization decision, approval
+  creation/decision, execution result and latency; arguments are masked per field
+  (confirmation codes partially, names and notes redacted).
+
+---
+
+## ADR-0021 — Simulated refund policy engine and cancellation refunds
+
+- Status: Accepted
+- Date: 2026-10-07
+
+### Decision
+- `calculate_refund` (READ_ONLY, SENSITIVE) implements POL-CANCEL-001 for confirmed future
+  stays: OTA bookings → not refundable by the hotel; Private Pool Villa → free ≥ 14 days,
+  else 2 nights (or full stay if shorter); corporate → free ≥ 24 h, else 1 night; peak
+  season (1 Apr–30 Jun, 20 Dec–5 Jan) → free ≥ 7 days, else 50 % of the stay; otherwise
+  flexible → free ≥ 48 h, else 1 night. Hours are measured to 14:00 on the arrival date.
+- Simulation assumptions: the guest prepaid the quoted `total_amount`; taxes are ignored;
+  rate plans (e.g. non-refundable) are not modelled; "now" is the business date at 12:00
+  Asia/Kolkata.
+- `request_cancellation_refund` (MUTATING, SENSITIVE): the **amount is always computed
+  server-side** (never supplied by the caller). On approval it cancels the reservation and
+  records a refund in one transaction, after recomputing the amount (must be unchanged).
+  `refunds.reservation_id` is UNIQUE (one refund per reservation).
+- Approval authority (synthetic matrix): refunds up to ₹50,000 → `front_office_manager` or
+  `duty_manager`; above → `general_manager`. Housekeeping tasks → `housekeeping_supervisor`,
+  `duty_manager` or `front_office_manager`.
 
