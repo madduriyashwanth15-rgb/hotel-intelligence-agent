@@ -29,3 +29,6 @@ Thumbs.db
 
 # Local embedding model cache (downloaded once, never committed)
 .models/
+
+# CI evaluation outputs (generated in the workflow, never committed)
+eval/results/ci_*.json

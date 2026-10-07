@@ -88,11 +88,14 @@ def test_ask_logs_fingerprint_not_question(answering_client: TestClient) -> None
     handler.setFormatter(JsonFormatter())
     logger = logging.getLogger("hotel_agent.api.knowledge")
     logger.addHandler(handler)
+    previous_level = logger.level
+    logger.setLevel(logging.INFO)  # independent of LOG_LEVEL in the environment
     try:
         secretish = "guest Ms Example asked about late checkout"
         response = answering_client.post("/knowledge/ask", json={"question": secretish})
     finally:
         logger.removeHandler(handler)
+        logger.setLevel(previous_level)
     assert response.status_code == 200
     record = json.loads(stream.getvalue().strip().splitlines()[-1])
     assert record["message"] == "knowledge question answered"
