@@ -63,6 +63,10 @@ class Settings(BaseSettings):
     # Agent router model (Phase 6, ADR-0025). "deterministic" needs nothing else; "ollama"
     # needs a local Ollama server (loopback only). The fallback routes requests the
     # primary model fails on (error / invalid output) with the deterministic router.
+    # Staff principal the HTTP agent endpoint acts as (Phase 7, ADR-0027). NO
+    # AUTHENTICATION: bound by the server operator, never by a request. Unset = disabled.
+    agent_staff_code: str | None = Field(default=None, pattern=r"^S-[A-Z0-9]{2,4}-[0-9]{2}$")
+
     llm_provider: Literal["deterministic", "ollama"] = "deterministic"
     llm_fallback: bool = True
     ollama_base_url: str = "http://127.0.0.1:11434"

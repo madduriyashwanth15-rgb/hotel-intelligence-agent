@@ -6,13 +6,17 @@ Run locally:
 
 from __future__ import annotations
 
+import logging
 from collections.abc import AsyncIterator
-from contextlib import asynccontextmanager
+from contextlib import AsyncExitStack, asynccontextmanager
 
 from fastapi import FastAPI
 from sqlalchemy import Engine
 
 from hotel_agent import __version__
+from hotel_agent.agent.service import HotelAgent
+from hotel_agent.api.agent import AgentHolder
+from hotel_agent.api.agent import router as agent_router
 from hotel_agent.api.data import PipelineHolder
 from hotel_agent.api.data import router as data_router
 from hotel_agent.api.health import router as health_router
@@ -32,6 +36,7 @@ from hotel_agent.sql.pipeline import SqlPipeline
 
 # Fail fast instead of hanging when the database is unreachable.
 CONNECT_TIMEOUT_SECONDS = 3
+logger = logging.getLogger(__name__)
 
 
 def _build_answerer(settings: Settings) -> tuple[ExtractiveAnswerer | None, Engine | None]:
@@ -69,11 +74,29 @@ def _sql_pipeline_factory(settings: Settings) -> tuple[PipelineHolder, Engine | 
     return PipelineHolder(build), sql_engine
 
 
+async def _open_agent(settings: Settings, stack: AsyncExitStack) -> HotelAgent | None:
+    """Bind the agent to AGENT_STAFF_CODE (server-side; no authentication). None if unset."""
+    if settings.agent_staff_code is None:
+        return None
+    from hotel_agent.agent.factory import agent_resources, agent_session, router_models
+
+    try:
+        llm, fallback = router_models(settings)
+        resources = stack.enter_context(agent_resources(settings))
+        return await stack.enter_async_context(
+            agent_session(resources, settings.agent_staff_code, llm=llm, fallback=fallback)
+        )
+    except Exception as exc:  # misconfigured or unseeded database: serve 503, keep the API up
+        logger.warning("agent not available", extra={"error": type(exc).__name__})
+        return None
+
+
 def create_app(
     settings: Settings | None = None,
     engine: Engine | None = None,
     answerer: ExtractiveAnswerer | None = None,
     sql_pipeline: SqlPipeline | None = None,
+    agent: HotelAgent | None = None,
 ) -> FastAPI:
     settings = settings or get_settings()
     configure_logging(settings.log_level)
@@ -96,7 +119,10 @@ def create_app(
         else:
             app.state.sql_pipeline, sql_engine = _sql_pipeline_factory(settings)
         try:
-            yield
+            async with AsyncExitStack() as agent_stack:  # closes the MCP session and engines
+                if agent is None:
+                    app.state.agent = AgentHolder(await _open_agent(settings, agent_stack))
+                yield
         finally:
             if owns_engine:
                 app.state.engine.dispose()
@@ -110,4 +136,7 @@ def create_app(
     app.include_router(health_router)
     app.include_router(knowledge_router)
     app.include_router(data_router)
+    app.include_router(agent_router)
+    if agent is not None:  # injected (tests): available without running the lifespan
+        app.state.agent = AgentHolder(agent)
     return app
