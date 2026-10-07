@@ -71,6 +71,7 @@ def test_loader_refuses_non_empty_database(
 def test_seed_cli_exit_codes(seeded_engine: Engine, settings: Settings) -> None:
     db = ["--database", settings.test_postgres_db]
     assert seed.main([*db]) == 1  # already seeded, no --reset
+    assert seed.main([*db, "--if-empty"]) == 0  # already seeded: success, no changes
     assert seed.main([*db, "--reset", "--seed", "42"]) == 0
     with seeded_engine.connect() as conn:
         assert conn.execute(text("SELECT count(*) FROM hotels")).scalar_one() == 1

@@ -1,0 +1,61 @@
+# One-command local demo (ADR-0027):
+#
+#     docker compose -f docker-compose.demo.yml up --build
+#
+# Then: POST http://127.0.0.1:8000/agent/ask  (see README "Run the demo").
+#
+# Separate project and volume from the development database (docker-compose.yml).
+# The demo database is NOT published to the host at all; only the API is, on 127.0.0.1.
+# Credentials below are demo-only defaults for a database reachable solely inside this
+# compose network — not secrets. Override them with DEMO_* environment variables.
+# NO AUTHENTICATION: the API acts as AGENT_STAFF_CODE (default S-FD-01, front desk).
+
+name: hotel-agent-demo
+
+x-db-credentials: &db-credentials
+  POSTGRES_DB: hotel_agent
+  POSTGRES_USER: ${DEMO_POSTGRES_USER:-demo_admin}
+  POSTGRES_PASSWORD: ${DEMO_POSTGRES_PASSWORD:-demo-only-local-password}
+
+services:
+  postgres:
+    image: pgvector/pgvector:0.8.1-pg16
+    environment:
+      <<: *db-credentials
+    # No "ports:" on purpose — not reachable from the host or the network.
+    volumes:
+      - demo_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+
+  app:
+    build: .
+    image: hotel-intelligence-agent:demo
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      <<: *db-credentials
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
+      READONLY_DB_PASSWORD: ${DEMO_READONLY_DB_PASSWORD:-demo-only-readonly-password}
+      SQL_DB_PASSWORD: ${DEMO_SQL_DB_PASSWORD:-demo-only-sql-password}
+      OPS_DB_PASSWORD: ${DEMO_OPS_DB_PASSWORD:-demo-only-ops-password}
+      AGENT_STAFF_CODE: ${AGENT_STAFF_CODE:-S-FD-01}
+      LLM_PROVIDER: deterministic
+      EMBEDDING_THREADS: "2"
+    ports:
+      - "127.0.0.1:8000:8000"
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+
+volumes:
+  demo_pgdata:

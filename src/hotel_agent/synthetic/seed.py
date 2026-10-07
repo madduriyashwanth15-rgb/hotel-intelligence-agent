@@ -3,6 +3,7 @@
 Usage:
     uv run hotel-seed            # refuses if data already exists
     uv run hotel-seed --reset    # truncate all hotel tables, then load
+    uv run hotel-seed --if-empty # load only into an empty database (idempotent demo start)
 """
 
 from __future__ import annotations
@@ -119,7 +120,13 @@ def main(argv: list[str] | None = None) -> int:
         help="Business date treated as 'today' (YYYY-MM-DD).",
     )
     parser.add_argument("--database", default=None, help="Target database (default: POSTGRES_DB)")
-    parser.add_argument("--reset", action="store_true", help="Truncate existing data first.")
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument("--reset", action="store_true", help="Truncate existing data first.")
+    mode.add_argument(
+        "--if-empty",
+        action="store_true",
+        help="Exit successfully without changes if the database already has data.",
+    )
     args = parser.parse_args(argv)
 
     configure_logging(settings.log_level)
@@ -128,6 +135,9 @@ def main(argv: list[str] | None = None) -> int:
     try:
         load_dataset(engine, dataset, reset=args.reset)
     except DatabaseNotEmptyError as exc:
+        if args.if_empty:
+            logger.info("database already seeded; nothing to do")
+            return 0
         logger.error(str(exc))
         return 1
     finally:
