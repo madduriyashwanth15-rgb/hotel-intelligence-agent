@@ -59,9 +59,11 @@ Phase 5 additions: LangGraph (LangSmith client present but tracing forced off; o
 approved) · deterministic router model (no LLM).
 
 Phase 6 additions: `OllamaLLMClient` (EXPERIMENTAL, opt-in, loopback only; stdlib HTTP) ·
-optional deterministic fallback · frozen held-out v2 + adversarial agent sets. Ollama
-itself lives outside the repo (`%LOCALAPPDATA%\hia-ollama`) and is not a project
-dependency. **Default router: deterministic. No production LLM selected.**
+optional deterministic fallback · frozen held-out v2 + adversarial agent sets. The
+Ollama runtime and qwen2.5:0.5b model were used only for the Phase 6 feasibility
+experiment and were deleted afterwards; no Ollama runtime/model files are required or
+stored anywhere, and Ollama is not a project dependency. **Default router:
+deterministic. No production LLM selected.**
 
 **Current project state: Phases 1–6 are complete (verified 2026-10-07).**
 

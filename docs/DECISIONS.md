@@ -801,8 +801,11 @@ The agent architecture supports a real LLM through `LLMClient` without redesign;
 model can be evaluated later with `hotel-agent eval --llm ...` on the frozen held-out and
 adversarial sets. Security never depended on the model: in the live trial the 0.5B model
 picked the mutating refund tool for "Is room 101 clean?" and the ToolGateway rejected the
-invented arguments. Ollama artefacts (~3.7 GB incl. the downloaded zip) remain outside the
-repository in `%LOCALAPPDATA%\hia-ollama` until the owner decides to remove them.
+invented arguments. The Ollama runtime and qwen2.5:0.5b artefacts (3.55 GB incl. the
+downloaded zip, kept outside the repository) were used only for this feasibility
+experiment and were deleted afterwards at the owner's request; no Ollama runtime or model
+files are currently required or stored. Re-running the experimental client would need a
+fresh, owner-approved install.
 
 ---
 
