@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from hotel_agent.db.session import PROJECT_ROOT
+from hotel_agent.config import PROJECT_ROOT
 from hotel_agent.knowledge.documents import (
     MAX_DOCUMENT_BYTES,
     DocumentCategory,

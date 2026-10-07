@@ -26,3 +26,6 @@ Thumbs.db
 
 # Claude Code per-user local settings
 .claude/settings.local.json
+
+# Local embedding model cache (downloaded once, never committed)
+.models/

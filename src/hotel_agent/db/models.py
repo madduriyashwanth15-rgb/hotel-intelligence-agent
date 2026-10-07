@@ -11,8 +11,11 @@ from datetime import date, datetime
 from decimal import Decimal
 from enum import StrEnum
 
+from pgvector.sqlalchemy import Vector
 from sqlalchemy import (
+    Boolean,
     CheckConstraint,
+    Computed,
     Date,
     DateTime,
     ForeignKey,
@@ -27,7 +30,7 @@ from sqlalchemy import (
     func,
     text,
 )
-from sqlalchemy.dialects.postgresql import ExcludeConstraint
+from sqlalchemy.dialects.postgresql import TSVECTOR, ExcludeConstraint
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 NAMING_CONVENTION = {
@@ -280,3 +283,74 @@ class DatasetMetadata(Base):
 
     key: Mapped[str] = mapped_column(String(64), primary_key=True)
     value: Mapped[str] = mapped_column(Text)
+
+
+# --- Knowledge base (Phase 2, ADR-0011/0012) ---
+
+KB_EMBEDDING_DIM = 384  # BAAI/bge-small-en-v1.5 (ADR-0009)
+KB_CATEGORIES = (
+    "cancellation",
+    "policy",
+    "sop",
+    "room_info",
+    "fnb",
+    "emergency",
+    "service_recovery",
+)
+_KB_CATEGORY_SQL = ", ".join(f"'{c}'" for c in KB_CATEGORIES)
+
+
+class KbDocument(Base):
+    """One source document of the hotel knowledge base."""
+
+    __tablename__ = "kb_documents"
+    __table_args__ = (
+        CheckConstraint(f"category IN ({_KB_CATEGORY_SQL})", name="category_valid"),
+        # Only synthetic documents may be stored (no real hotel/customer content).
+        CheckConstraint("is_synthetic", name="synthetic_only"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    doc_key: Mapped[str] = mapped_column(String(64), unique=True)
+    title: Mapped[str] = mapped_column(String(300))
+    category: Mapped[str] = mapped_column(String(32), index=True)
+    version: Mapped[str] = mapped_column(String(32))
+    effective_date: Mapped[date] = mapped_column(Date)
+    source_path: Mapped[str] = mapped_column(String(500))
+    content_sha256: Mapped[str] = mapped_column(String(64))
+    is_synthetic: Mapped[bool] = mapped_column(Boolean)
+    ingested_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+
+class KbChunk(Base):
+    """A retrievable, embedded passage of a knowledge-base document."""
+
+    __tablename__ = "kb_chunks"
+    __table_args__ = (
+        UniqueConstraint("document_id", "chunk_index", name="uq_kb_chunks_document_id_chunk_index"),
+        CheckConstraint("chunk_index >= 0", name="chunk_index_non_negative"),
+        Index("ix_kb_chunks_search_tsv", "search_tsv", postgresql_using="gin"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    document_id: Mapped[int] = mapped_column(
+        ForeignKey("kb_documents.id", ondelete="CASCADE"), index=True
+    )
+    chunk_index: Mapped[int] = mapped_column(Integer)
+    section_path: Mapped[str] = mapped_column(Text)
+    content: Mapped[str] = mapped_column(Text)
+    token_estimate: Mapped[int] = mapped_column(Integer)
+    content_sha256: Mapped[str] = mapped_column(String(64))
+    embedding: Mapped[list[float]] = mapped_column(Vector(KB_EMBEDDING_DIM))
+    embedding_model: Mapped[str] = mapped_column(String(100))
+    # Section headings weigh more than body text in keyword search.
+    search_tsv: Mapped[str] = mapped_column(
+        TSVECTOR,
+        Computed(
+            "setweight(to_tsvector('english', section_path), 'A') || "
+            "setweight(to_tsvector('english', content), 'B')",
+            persisted=True,
+        ),
+    )

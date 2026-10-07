@@ -27,10 +27,11 @@ TokenCounter = Callable[[str], int]
 def estimate_tokens(text: str) -> int:
     """Conservative token estimate for WordPiece models (overestimates rather than under).
 
-    Real token counts are checked against the model tokenizer in tests that use the model.
+    Includes the model's two special tokens ([CLS], [SEP]). Verified against the real
+    tokenizer for every corpus chunk in tests that use the model.
     """
     words = len(text.split())
-    return max(math.ceil(words * 1.4), math.ceil(len(text) / 3.5))
+    return max(math.ceil(words * 1.4), math.ceil(len(text) / 3.2)) + 2
 
 
 @dataclass(frozen=True, slots=True)

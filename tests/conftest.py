@@ -79,3 +79,8 @@ def migrated_engine(settings: Settings, admin_engine: Engine) -> Iterator[Engine
 def seeded_engine(migrated_engine: Engine, dataset: SyntheticDataset) -> Engine:
     load_dataset(migrated_engine, dataset, reset=True)
     return migrated_engine
+
+
+def clear_knowledge_base(engine: Engine) -> None:
+    with engine.begin() as conn:
+        conn.execute(text("DELETE FROM kb_documents"))

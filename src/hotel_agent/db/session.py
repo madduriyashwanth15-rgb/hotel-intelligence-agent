@@ -2,14 +2,13 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-
 from alembic.config import Config
 from alembic.script import ScriptDirectory
 from sqlalchemy import Engine, create_engine, text
 from sqlalchemy.engine import URL
 
-PROJECT_ROOT = Path(__file__).resolve().parents[3]
+from hotel_agent.config import PROJECT_ROOT
+
 ALEMBIC_INI = PROJECT_ROOT / "alembic.ini"
 
 

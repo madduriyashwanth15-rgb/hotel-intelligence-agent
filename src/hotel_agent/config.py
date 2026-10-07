@@ -4,11 +4,14 @@ from __future__ import annotations
 
 from datetime import date
 from functools import lru_cache
+from pathlib import Path
 from typing import Literal
 
 from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from sqlalchemy.engine import URL
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 LogLevel = Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
 
@@ -39,6 +42,15 @@ class Settings(BaseSettings):
 
     synthetic_seed: int = 42
     synthetic_anchor_date: date = date(2026, 10, 1)
+
+    # Knowledge base / embeddings (Phase 2). Relative paths resolve against the project root.
+    kb_dir: Path = Path("data/knowledge_base")
+    embedding_model: str = "BAAI/bge-small-en-v1.5"
+    embedding_cache_dir: Path = Path(".models")
+    embedding_threads: int = Field(default=2, ge=1, le=8)
+
+    def resolve_path(self, path: Path) -> Path:
+        return path if path.is_absolute() else PROJECT_ROOT / path
 
     def database_url(self, database: str | None = None) -> URL:
         """SQLAlchemy URL for the admin/application user (password safely escaped)."""
