@@ -104,7 +104,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8")
-    configure_logging(settings.log_level)
+    configure_logging(settings.log_level, stream="stderr")  # stdout carries the JSON result
     handlers = {"ask": _cmd_ask, "eval": _cmd_eval}
     return handlers[args.command](settings, args)
 

@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-10-07T08:11:31+00:00",
+  "generated_at": "2026-10-07T08:50:14+00:00",
   "generator": "fake-rules-v1 + fake-scripted",
   "max_cost_ceiling": 250000.0,
   "cases": 90,
@@ -30,9 +30,9 @@
     "max": 24682.6,
     "median": 304.4
   },
-  "latency_ms_p50": 0.6,
-  "latency_ms_p95": 32.2,
-  "answered_latency_ms_p50": 19.6,
-  "answered_latency_ms_p95": 36.1,
+  "latency_ms_p50": 0.5,
+  "latency_ms_p95": 36.6,
+  "answered_latency_ms_p50": 21.1,
+  "answered_latency_ms_p95": 39.1,
   "failures": []
 }

@@ -4,9 +4,10 @@ An AI copilot for hotel teams: grounded answers from SOPs and policies (RAG),
 controlled questions over operational data (Text-to-SQL), and safe hotel
 operations through tools with human approval.
 
-**Status: Phase 3 complete (grounded knowledge retrieval with cited extractive answers;
-controlled, read-only Text-to-SQL over curated views with a deterministic fake generator).**
-No LLM is used. See [docs/ROADMAP.md](docs/ROADMAP.md).
+**Status: Phase 4 complete (grounded knowledge retrieval with cited extractive answers;
+controlled read-only Text-to-SQL; an MCP tool server for simulated hotel operations with
+human approval for every mutating action).** No LLM is used, and staff identity is not
+authenticated yet. See [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ## Project documentation
 
@@ -87,6 +88,28 @@ Generated SQL is validated by an allowlist guard and executed as `hotel_sql`, a 
 can read only curated `analytics` views (no guest identities) and can never write. The
 response contains the answer and, separately, the exact SQL that was executed.
 
+### Hotel operations tools over MCP (Phase 4, simulated)
+
+```bash
+uv run hotel-mcp --staff-code S-FD-01          # stdio MCP server for one staff session
+uv run hotel-ops call get_occupancy --as S-FD-01 --args '{}'
+uv run hotel-ops approvals list --as S-HS-01   # human approval channel (not via MCP)
+uv run hotel-ops approvals approve <approval_id> --as S-HS-01 --note "checked"
+```
+
+MCP client configuration (stdio), e.g.:
+
+```json
+{"command": "uv", "args": ["run", "hotel-mcp", "--staff-code", "S-FD-01"],
+ "cwd": "<path to this repository>"}
+```
+
+Read-only tools answer directly. Mutating tools (`create_housekeeping_task`,
+`request_cancellation_refund`) only create a pending request; a different, authorised
+staff member must approve it with `hotel-ops`. Staff codes are synthetic
+(`S-FD-01` front desk, `S-HK-01` housekeeping, `S-HS-01` housekeeping supervisor,
+`S-FOM-01`, `S-DM-01`/`S-DM-02`, `S-GM-01`).
+
 > **Windows note:** use `POSTGRES_HOST=127.0.0.1`, not `localhost`. Windows
 > resolves `localhost` to IPv6 `::1` first, while the container is bound to
 > IPv4 only, so every connection stalls on a timeout before falling back.
@@ -114,6 +137,7 @@ src/hotel_agent/
   synthetic/           deterministic data generator and loader CLI
   knowledge/           knowledge base: loader, chunker, embeddings, retrieval, answers, eval
   sql/                 controlled Text-to-SQL: guard, executor, generators, pipeline, eval
+  ops/                 tool gateway, approvals, refund engine, MCP server, hotel-ops CLI
 data/knowledge_base/   synthetic hotel documents (Markdown + TOML front matter)
 eval/                  evaluation questions and results
 migrations/            Alembic migrations

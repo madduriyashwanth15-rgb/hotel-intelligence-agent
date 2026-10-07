@@ -9,7 +9,7 @@ IMPLEMENTED · TESTED · PLANNED · EXPERIMENTAL ([CLAUDE.md §13](../CLAUDE.md#
 | 1 | Foundations and synthetic data | ✅ Complete — TESTED (2026-10-07) |
 | 2 | Grounded RAG | ✅ Complete — TESTED (2026-10-07) |
 | 3 | Controlled Text-to-SQL | ✅ Complete — TESTED (2026-10-07) |
-| 4 | MCP tool server | IN PROGRESS (started 2026-10-07) |
+| 4 | MCP tool server | ✅ Complete — TESTED (2026-10-07; simulated, no auth) |
 | 5 | LangGraph orchestration | PLANNED — not started |
 | 6 | Human approval for sensitive actions | PLANNED — not started |
 | 7 | Evaluation and observability hardening | PLANNED — not started |
@@ -98,31 +98,34 @@ Definition of Done — all items verified (final run 2026-10-07):
 - [x] RAM / disk / latency measured (ARCHITECTURE §2.10)
 - [x] All checks pass (458 tests, ruff, mypy); docs and roadmap updated; committed
 
-## Phase 4 — MCP tool server (IN PROGRESS)
+## Phase 4 — MCP tool server ✅ (2026-10-07)
 
 Decisions: ADR-0018 (MCP boundary over a tool gateway, stdio only), ADR-0019 (classification
 and human approval), ADR-0020 (principals, authorization, hotel scoping, `hotel_ops` role),
-ADR-0021 (refund policy engine). Out of scope: LLM agent, LangGraph, real PMS, external
-APIs, cloud.
+ADR-0021 (refund policy engine). Not implemented (out of scope): LLM agent, LangGraph,
+real PMS, external APIs, cloud, authentication.
 
-Definition of Done:
+Definition of Done — all items verified (final run 2026-10-07):
 
 - [x] Decision records (ADR-0018..0021)
-- [ ] Migration 0005: `staff_members`, `approval_requests`, `refunds`, `hotel_ops` role with
-      least privilege; synthetic staff seeded; round-trip tested
-- [ ] Tool gateway: registry, strict schemas, READ_ONLY / MUTATING / SENSITIVE classes,
+- [x] Migration 0005: `staff_members`, `approval_requests`, `refunds`, `hotel_ops` role with
+      least privilege; synthetic staff seeded (generator 1.1.0); round-trip tested;
+      database-layer tests bypass the gateway
+- [x] Tool gateway: registry, strict schemas, READ_ONLY / MUTATING / SENSITIVE classes,
       authorization matrix, hotel scoping, PII minimisation, masked audit log
-- [ ] Tools: get_reservation, get_room_status, get_occupancy, get_housekeeping_tasks,
+- [x] Tools: get_reservation, get_room_status, get_occupancy, get_housekeeping_tasks,
       calculate_refund, get_approval_status, create_housekeeping_task,
       request_cancellation_refund
-- [ ] Human approval workflow (pending → approved/rejected/expired → executed/failed),
-      four-eyes, authority limits, exactly-once execution; human CLI `hotel-ops`
-- [ ] MCP server (stdio) with in-memory and stdio-process tests
-- [ ] Adversarial tests: unauthorized, malformed, cross-hotel, mutation via read tools,
+- [x] Human approval workflow (pending → executed/failed/rejected/expired), four-eyes,
+      authority limits, argument integrity, exactly-once execution; `hotel-ops` CLI
+      verified live
+- [x] MCP server (stdio) with in-memory and real stdio-process tests
+- [x] Adversarial tests: unauthorized, malformed, cross-hotel, mutation via read tools,
       prompt-injection-style requests, excessive quantities, refund abuse, housekeeping
-      abuse, unknown tools, tool chaining
-- [ ] Measured: tool latency, RAM, disk, coverage, security results
-- [ ] Full regression (pytest, ruff, mypy) incl. Phase 1-3 floors; docs updated; committed
+      abuse, unknown tools, tool chaining — all blocked as designed
+- [x] Measured: tool latency, RAM, disk, coverage (91% overall, 94% `ops`), security results
+- [x] Full regression: 603 tests, ruff, mypy; Phase 2 and 3 evaluations unchanged; docs
+      updated; committed
 
 ## Phase 5 — LangGraph orchestration (PLANNED)
 
@@ -150,8 +153,9 @@ Definition of Done:
 
 ## Known issues / follow-ups
 
-- Starlette emits a deprecation warning recommending `httpx2` for `TestClient`. Not acted
-  on: the package is unverified; revisit when FastAPI/Starlette guidance settles.
+- Starlette emits a deprecation warning recommending `httpx2` for `TestClient`. httpx2 was
+  verified in Phase 4 as a legitimate BSD-3 package (httpx author, maintained by Pydantic)
+  but is not installed; switching the test client is optional future work.
 - No pre-commit hooks or CI yet (CI requires owner approval per ADR-0002).
 - Git repository initialised but **no commits yet**; awaiting owner instruction to commit.
 - Docker Desktop licence applicability not yet confirmed by the owner (ADR-0002).
@@ -169,6 +173,9 @@ Record future ideas here instead of implementing them early.
   with the existing 90-case set, keeping the 100% safety gate.
 - Text-to-SQL: persistent audit table (deferred from Phase 3 by decision).
 - Text-to-SQL: non-superuser owner for analytics views (production hardening).
+- Tools: authentication for MCP/CLI principals (Phase 8); approval UI or HTTP endpoints;
+  persistent per-principal rate limits; tamper-evident audit store.
+- Tools: unit tests for the `hotel-kb` / `hotel-sql` CLIs (currently verified live only).
 - Synthetic data: spread cancellation timestamps more realistically (they cluster before
   the business date today).
 - RAG: grow the evaluation set (more paraphrases, more near-topic unanswerables), ideally

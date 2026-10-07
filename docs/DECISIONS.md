@@ -547,6 +547,9 @@ must be verifiable without an LLM and must not open network services.
 ### Consequences
 - The same gateway can back other front ends (CLI, HTTP) without duplicating rules.
 - Coverage is measured with `pytest-cov` (dev dependency, MIT).
+- Measured (2026-10-07): MCP in-memory round trip p50 23.5 ms; `hotel-mcp` ~96 MB RSS;
+  `mcp` 1.30.0 + `pytest-cov` added 32 MB. The SDK resolved without `httpx2`, so the
+  Starlette `httpx2` deprecation warning remains.
 
 ---
 

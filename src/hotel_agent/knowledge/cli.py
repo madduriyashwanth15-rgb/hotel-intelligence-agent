@@ -169,7 +169,7 @@ def main(argv: list[str] | None = None) -> int:
     # Answers contain ₹ and other non-ASCII text; Windows consoles default to cp1252.
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8")
-    configure_logging(settings.log_level)
+    configure_logging(settings.log_level, stream="stderr")  # stdout carries the JSON result
     handlers = {
         "download-model": _cmd_download_model,
         "ingest": _cmd_ingest,

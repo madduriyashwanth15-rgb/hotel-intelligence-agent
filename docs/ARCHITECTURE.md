@@ -43,12 +43,12 @@ Principles (status in brackets):
   deterministic fake generator, §2.10; LLM generator PLANNED].
 - **Tools behind MCP:** typed schemas; read vs write classification; write tools go
   through human approval; tool logic lives in a plain service layer so MCP is a thin
-  wrapper.
+  wrapper [TESTED, §2.11 — simulated operations, no authentication yet].
 - **Human approval:** LangGraph `interrupt()` with a Postgres-backed checkpointer so
   pending approvals survive restarts.
 - **Tests never call an LLM**; real-model evaluation runs as a separate suite.
 
-## 2. Current architecture (Phases 1–3) — TESTED
+## 2. Current architecture (Phases 1–4) — TESTED
 
 ```
 uvicorn ─► FastAPI app (create_app factory)
@@ -62,7 +62,9 @@ hotel-seed CLI ─► generator.generate(seed, anchor_date) ─► loader (singl
                                     (hotel_sql role, analytics.* views only)
 hotel-kb CLI   ─► download-model | ingest | ask | eval
 hotel-sql CLI  ─► ask | eval
-alembic ─► migrations/ (0001 core, 0002 read-only role, 0003 knowledge base, 0004 analytics)
+hotel-mcp (MCP stdio) ─► ToolGateway ─► tools (hotel_ops role) ─► PostgreSQL
+hotel-ops CLI (human) ─► ApprovalService ─► executes approved mutations exactly once
+alembic ─► migrations/ (0001 core, 0002 read-only, 0003 KB, 0004 analytics, 0005 ops)
 ```
 
 ### 2.1 Code map
@@ -95,11 +97,20 @@ alembic ─► migrations/ (0001 core, 0002 read-only role, 0003 knowledge base,
 | `src/hotel_agent/sql/pipeline.py` | generate → guard → execute → summarize → audit log | TESTED |
 | `src/hotel_agent/sql/formatting.py` | Deterministic answer sentences | TESTED |
 | `src/hotel_agent/sql/evaluation.py` | Text-to-SQL evaluation vs reference SQL | TESTED |
-| `src/hotel_agent/sql/cli.py` | `hotel-sql` command line | TESTED |
+| `src/hotel_agent/sql/cli.py` | `hotel-sql` command line | TESTED (live) |
+| `src/hotel_agent/ops/principal.py` | Staff principals, business date/now | TESTED |
+| `src/hotel_agent/ops/schemas.py` | Strict tool argument schemas | TESTED |
+| `src/hotel_agent/ops/tools.py` | Tool registry, classification, implementations | TESTED |
+| `src/hotel_agent/ops/refund.py` | POL-CANCEL-001 refund policy engine | TESTED |
+| `src/hotel_agent/ops/gateway.py` | ToolGateway: authorization, validation, approvals requests, audit | TESTED |
+| `src/hotel_agent/ops/approvals.py` | Human approval service (four-eyes, authority, exactly once) | TESTED |
+| `src/hotel_agent/ops/audit.py` | Masked audit events | TESTED |
+| `src/hotel_agent/ops/mcp_server.py` | `hotel-mcp` stdio MCP server | TESTED |
+| `src/hotel_agent/ops/cli.py` | `hotel-ops` human approval CLI | TESTED |
 | `data/knowledge_base/` | 15 synthetic hotel documents | — |
 | `eval/` | Evaluation set and saved results | — |
 | `migrations/` | Alembic environment and revisions | TESTED |
-| `tests/` | pytest suite (92 tests after Phase 1; 181 after Phase 2; 458 after Phase 3) | — |
+| `tests/` | pytest suite (92 after Phase 1; 181 after Phase 2; 458 after Phase 3; 603 after Phase 4) | — |
 
 ### 2.2 Runtime infrastructure
 
@@ -164,6 +175,7 @@ Domain semantics:
 | `hotel_admin` (POSTGRES_USER) | yes | everything (owner, superuser in the dev container) | migrations, seeding, ingestion, eval reference SQL |
 | `hotel_readonly` → `hotel_reader` | `hotel_reader` | `kb_documents`, `kb_chunks` only | knowledge retrieval (`/knowledge/ask`) |
 | `hotel_analytics` → `hotel_sql` | `hotel_sql` | the 7 `analytics` views only | Text-to-SQL (`/data/ask`) |
+| `hotel_ops_group` → `hotel_ops` | `hotel_ops` | tables tools need; `guests` only `id, first_name, last_name, loyalty_tier`; INSERT on tasks/approvals/refunds; column-limited UPDATE; no DELETE/DDL | MCP tool gateway, human approvals |
 
 Login roles default to read-only transactions and short statement timeouts (`hotel_reader`
 5 s, `hotel_sql` 3 s plus `search_path = analytics`, connection limit 5). `PUBLIC` has no
@@ -273,6 +285,46 @@ Measured: answered questions ~30–60 ms end to end (live API), refusals < 3 ms;
 process peak RAM 87 MB; API process ~100 MB without the embedding model loaded; sqlglot
 adds 3 MB to the venv.
 
+### 2.11 MCP tool server (Phase 4)
+
+Layers (ADR-0018): `hotel-mcp` (official MCP SDK, low-level `Server`, **stdio only**,
+SDK input validation off) → `ToolGateway` → tool implementations → PostgreSQL as
+`hotel_ops`. The human approval channel (`hotel-ops approvals …` → `ApprovalService`) is a
+separate process path and is **not** exposed via MCP.
+
+| Tool | Class | Roles allowed | Notes |
+|---|---|---|---|
+| `get_reservation` | READ_ONLY | front desk, managers | code **and** last name; returns initials + loyalty tier only |
+| `get_room_status` | READ_ONLY | front desk, housekeeping, managers | no guest data |
+| `get_occupancy` | READ_ONLY | front desk, managers | date within ±365 days |
+| `get_housekeeping_tasks` | READ_ONLY | front desk, housekeeping, managers | max 50; no notes |
+| `calculate_refund` | READ_ONLY, SENSITIVE | front desk, managers | quote only (POL-CANCEL-001) |
+| `get_approval_status` | READ_ONLY | all (own requests; managers any in hotel) | |
+| `create_housekeeping_task` | MUTATING | front desk, housekeeping, supervisor, FOM, DM | approver: supervisor, DM or FOM |
+| `request_cancellation_refund` | MUTATING, SENSITIVE | front desk, managers | approver: FOM/DM/GM ≤ ₹50,000; GM above; amount server-computed |
+
+Gateway checks per call: known tool → principal still active → role permitted → lookup
+lockout (5 failed lookups/session) / pending cap (10/session) → strict pydantic
+validation (`extra="forbid"`, no value echo in errors) → hotel-scoped execution. READ_ONLY
+tools run in `SET TRANSACTION READ ONLY`; MUTATING tools only insert a pending
+`approval_requests` row (30-minute expiry, arguments + SHA-256, required approver roles).
+
+Approval (ADR-0019): same hotel, pending and unexpired, approver active, approver ≠
+requester (also a DB CHECK), approver role in the stored authority set, argument hash
+intact → execute inside the same transaction with re-validation (duplicate tasks, refund
+recomputation, one refund per reservation) → `executed` or `failed`, exactly once.
+
+Audit (`hotel_agent.ops.audit`, JSON): `tool.requested` (masked arguments),
+`tool.authorization` (allowed/denied + reason), `approval.created`, `approval.decided`,
+`approval.executed`, `approval.expired`, `approval.decision_refused`, `tool.result`
+(code, latency). Guest names, notes, unknown argument values and full confirmation codes
+are never logged.
+
+Measured (dev DB, this laptop): read tools p50 17–24 ms (p95 ≤ 33 ms); rejected calls
+< 9 ms; creating an approval request ~31 ms; approve + execute 31–36 ms (p95 ≤ 55 ms);
+MCP in-memory round trip 23.5 ms; `hotel-mcp` process ~96 MB RSS; benchmark process peak
+99 MB. `mcp` + `pytest-cov` added 32 MB to the venv. Coverage: 91% overall, 94% for `ops`.
+
 ## 3. Known limitations (by design for Phase 1)
 
 - Single property; tables carry `hotel_id`, so multi-property is possible later (untested).
@@ -281,6 +333,19 @@ adds 3 MB to the venv.
 - No authentication yet (local-only, bound to 127.0.0.1). Planned for Phase 8.
 - Read-only role can currently read all tables, including guest contact columns
   (synthetic). Narrowing is a Phase 3 deliverable.
+
+### Phase 4 limitations
+
+- **No authentication**: the MCP session principal is asserted by whoever launches
+  `hotel-mcp --staff-code …` (and `hotel-ops --as …`). Fine for a local simulation, not for
+  production. Not production-ready.
+- stdio transport only; no network transport or multi-user server.
+- Operations are simulated: refunds are ledger rows, no payment system; taxes and rate
+  plans are not modelled; "now" for reservations is the business date at 12:00.
+- Session limits (lookup lockout, pending cap) are per process, not persistent.
+- Audit is JSON logs (plus the `approval_requests` table itself); no tamper-evident audit
+  store.
+- `mcp_server.main()` is exercised by a subprocess test, so line coverage under-reports it.
 
 ### Phase 3 limitations
 

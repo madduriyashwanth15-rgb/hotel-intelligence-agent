@@ -113,6 +113,15 @@ A change is not "done" until all of the above pass.
 - Database-layer tests must keep proving, with the guard bypassed, that `hotel_sql` cannot
   read base tables, write, create objects or run long queries.
 
+### Tool / MCP security (Phase 4)
+
+- Deny by default: every tool lists its allowed roles; mutating tools list approver roles.
+- Mutating tools must go through `approval_requests`; never execute from the model path.
+- Scope every query by the principal's hotel; never accept hotel/role/staff in arguments.
+- Return the minimum data needed; never return guest contact details.
+- Add adversarial tests (unauthorized, malformed, cross-hotel, injection-style, quantity
+  abuse, chaining) for every new tool; keep the database-layer `hotel_ops` tests passing.
+
 ## 9. Synthetic data rules
 
 - All data describes the fictional Grand Hills Resort.

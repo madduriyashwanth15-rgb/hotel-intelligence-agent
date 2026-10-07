@@ -52,7 +52,10 @@ hybrid retrieval in PostgreSQL (pgvector + full-text + RRF).
 
 Phase 3 additions: sqlglot (SQL parsing/validation) · `analytics` views · `hotel_sql` role.
 
-**Current project state: Phases 1, 2 and 3 are complete (verified 2026-10-07).**
+Phase 4 additions: official MCP Python SDK (`mcp`, stdio only) · `hotel_ops` role ·
+pytest-cov (dev).
+
+**Current project state: Phases 1–4 are complete (verified 2026-10-07).**
 
 Implemented and tested:
 - PostgreSQL 16 + pgvector (local Docker, bound to 127.0.0.1)
@@ -75,11 +78,17 @@ Implemented and tested:
   executor (timeout, EXPLAIN cost ceiling, row cap), `SqlGenerator` protocol with
   deterministic fake generators (no LLM), pipeline with masked-SQL audit logs,
   `POST /data/ask`, `hotel-sql` CLI, 90-case evaluation vs reference SQL (100% safety)
+- Phase 4: migration 0005 (`staff_members`, `approval_requests`, `refunds`, `hotel_ops`
+  least-privilege role), ToolGateway with 8 tools (6 READ_ONLY, 2 MUTATING), role matrix,
+  hotel scoping, masked audit, human approval workflow (four-eyes, authority, expiry,
+  exactly once), POL-CANCEL-001 refund engine, `hotel-mcp` stdio server, `hotel-ops` CLI,
+  adversarial tests. Simulated operations; no authentication (not production-ready).
 
 ## 5. Planned AI architecture
 
 Future phases may introduce: local LLM (incl. LLM-generated RAG answers and an LLM SQL
-generator), LangGraph, MCP, human-in-the-loop, observability. (The Text-to-SQL safety
+generator), LangGraph agent using the MCP tools, approval UI/endpoints, authentication,
+observability. (MCP tools and the human approval workflow exist as of Phase 4.) (The Text-to-SQL safety
 pipeline exists; only a deterministic fake generator is implemented.) (Local embeddings, extractive RAG and
 retrieval evaluation are implemented as of Phase 2.)
 
@@ -185,7 +194,10 @@ uv run hotel-kb ask "question"       # extractive answer with citations
 uv run hotel-kb eval --output kb_eval.json
 uv run hotel-sql ask "question"      # read-only operational answer + executed SQL
 uv run hotel-sql eval --output sql_eval.json
+uv run hotel-mcp --staff-code S-FD-01 # MCP stdio server (logs to stderr)
+uv run hotel-ops approvals list --as S-HS-01
 uv run pytest                        # needs Postgres; `model` tests need the model
+uv run pytest --cov=hotel_agent      # coverage
 uv run ruff format --check . && uv run ruff check . && uv run mypy
 ```
 
@@ -209,6 +221,14 @@ uv run ruff format --check . && uv run ruff check . && uv run mypy
 - New analytics views need: migration (view + explicit GRANT to `hotel_analytics`), guard
   `ALLOWED_VIEWS`, `sql/context.py` ViewSpec, reference-SQL tests. Never expose PII columns.
 - Generated SQL must use `analytics.business_date`, never `CURRENT_DATE`/`now()`.
+- MCP stdio: stdout is the protocol channel — log with `configure_logging(stream="stderr")`.
+- Never add an approve/execute tool to MCP. Mutating tools only create approval requests;
+  execution happens only via `ApprovalService` (human channel). Tool args must never carry
+  hotel, role or staff identity (schemas use `extra="forbid"`).
+- New tools need: strict schema, role set, READ_ONLY/MUTATING (+SENSITIVE) class, hotel
+  scoping, masked audit fields in `ops/audit.py`, adversarial tests; grants for
+  `hotel_ops` via migration.
+- Ops tests run in an isolated DB (`conftest.ops_db`) because they execute mutations.
 - Writing regexes through bash heredocs/`python -c` has produced invisible control chars
   (`\b` became a backspace). Prefer the Edit tool or a script file; the hygiene test
   `tests/test_repo_hygiene.py` catches this.

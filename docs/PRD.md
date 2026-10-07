@@ -72,12 +72,19 @@ no-shows, revenue (total/category), ADR/RevPAR, booking volume by room type, ave
 booking value, average length of stay, room status, open housekeeping tasks. Everything
 else is refused with a reason code.
 
-### C. Controlled tools — PLANNED (Phase 4)
-Examples: `get_reservation`, `get_room_status`, `get_occupancy`,
-`create_housekeeping_task`, `calculate_refund`.
-Sensitive write actions must require human approval (Phase 6).
-`calculate_refund` depends on a cancellation policy, which will come from the Phase 2
-synthetic policy documents.
+### C. Controlled tools — TESTED (Phase 4, simulated operations, no authentication)
+Tools over MCP (stdio): `get_reservation`, `get_room_status`, `get_occupancy`,
+`get_housekeeping_tasks`, `calculate_refund`, `get_approval_status` (READ_ONLY);
+`create_housekeeping_task`, `request_cancellation_refund` (MUTATING, human approval
+required). The refund engine implements the synthetic POL-CANCEL-001 policy.
+
+| Item | Status |
+|---|---|
+| Tool gateway with role authorization, hotel scoping, strict validation, masked audit | TESTED |
+| Human approval for every mutating tool (four-eyes, authority limits, expiry, exactly once) | TESTED |
+| MCP stdio server + human approval CLI | TESTED |
+| Authentication of staff identity | PLANNED (Phase 8) |
+| Agent orchestration using the tools (LangGraph) | PLANNED (Phase 5) |
 
 ### Platform
 
@@ -88,7 +95,7 @@ synthetic policy documents.
 | `POST /data/ask` (operational data Q&A, read-only) | TESTED |
 | Structured JSON logging with request IDs | TESTED |
 | Agent orchestration (LangGraph) | PLANNED (Phase 5) |
-| MCP tool server | PLANNED (Phase 4) |
+| MCP tool server (stdio, simulated operations) | TESTED |
 | Human-in-the-loop approvals | PLANNED (Phase 6) |
 | Evaluation harness and tracing | PLANNED (Phase 7) |
 | Authentication / authorization | PLANNED (Phase 8) |
