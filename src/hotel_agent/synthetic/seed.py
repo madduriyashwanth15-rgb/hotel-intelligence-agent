@@ -28,6 +28,7 @@ from hotel_agent.db.models import (
     Reservation,
     Room,
     RoomType,
+    StaffMember,
 )
 from hotel_agent.db.session import make_engine
 from hotel_agent.logging_config import configure_logging
@@ -38,6 +39,7 @@ logger = logging.getLogger(__name__)
 # Insertion order respects foreign keys.
 LOAD_ORDER: tuple[tuple[str, type[Base]], ...] = (
     ("hotels", Hotel),
+    ("staff_members", StaffMember),
     ("room_types", RoomType),
     ("rooms", Room),
     ("guests", Guest),

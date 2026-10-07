@@ -30,7 +30,7 @@ from sqlalchemy import (
     func,
     text,
 )
-from sqlalchemy.dialects.postgresql import TSVECTOR, ExcludeConstraint
+from sqlalchemy.dialects.postgresql import JSONB, TSVECTOR, ExcludeConstraint
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 NAMING_CONVENTION = {
@@ -354,3 +354,98 @@ class KbChunk(Base):
             persisted=True,
         ),
     )
+
+
+# --- Operations: staff, approvals, refunds (Phase 4, ADR-0019..0021) ---
+
+
+class StaffRole(StrEnum):
+    FRONT_DESK = "front_desk"
+    HOUSEKEEPING = "housekeeping"
+    HOUSEKEEPING_SUPERVISOR = "housekeeping_supervisor"
+    FRONT_OFFICE_MANAGER = "front_office_manager"
+    DUTY_MANAGER = "duty_manager"
+    GENERAL_MANAGER = "general_manager"
+
+
+class ApprovalStatus(StrEnum):
+    PENDING = "pending"
+    EXECUTED = "executed"
+    FAILED = "failed"
+    REJECTED = "rejected"
+    EXPIRED = "expired"
+
+
+class StaffMember(Base):
+    """Synthetic staff principal (no real people)."""
+
+    __tablename__ = "staff_members"
+    __table_args__ = (CheckConstraint(enum_check("role", StaffRole), name="role_valid"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    hotel_id: Mapped[int] = mapped_column(ForeignKey("hotels.id", ondelete="CASCADE"), index=True)
+    staff_code: Mapped[str] = mapped_column(String(16), unique=True)
+    display_name: Mapped[str] = mapped_column(String(100))
+    role: Mapped[str] = mapped_column(String(32))
+    is_active: Mapped[bool] = mapped_column(Boolean)
+
+
+class ApprovalRequest(Base):
+    """A mutating tool call waiting for (or decided by) a human approver."""
+
+    __tablename__ = "approval_requests"
+    __table_args__ = (
+        CheckConstraint(enum_check("status", ApprovalStatus), name="status_valid"),
+        # Four-eyes: nobody approves their own request.
+        CheckConstraint(
+            "decided_by IS NULL OR decided_by <> requested_by", name="approver_not_requester"
+        ),
+        CheckConstraint("(status = 'pending') = (decided_at IS NULL)", name="decided_iff_closed"),
+        CheckConstraint(
+            "status NOT IN ('executed', 'failed', 'rejected') OR decided_by IS NOT NULL",
+            name="decision_has_approver",
+        ),
+        CheckConstraint(
+            "(status IN ('executed', 'failed')) = (executed_at IS NOT NULL)",
+            name="executed_iff_run",
+        ),
+        CheckConstraint("expires_at > requested_at", name="expiry_after_request"),
+        Index("ix_approval_requests_hotel_status", "hotel_id", "status"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    public_id: Mapped[str] = mapped_column(String(32), unique=True)
+    hotel_id: Mapped[int] = mapped_column(ForeignKey("hotels.id", ondelete="CASCADE"))
+    tool_name: Mapped[str] = mapped_column(String(64))
+    arguments: Mapped[dict[str, object]] = mapped_column(JSONB)
+    arguments_sha256: Mapped[str] = mapped_column(String(64))
+    summary: Mapped[str] = mapped_column(Text)
+    requested_by: Mapped[int] = mapped_column(ForeignKey("staff_members.id"), index=True)
+    requested_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    status: Mapped[str] = mapped_column(String(16))
+    decided_by: Mapped[int | None] = mapped_column(ForeignKey("staff_members.id"))
+    decided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    decision_note: Mapped[str | None] = mapped_column(Text)
+    executed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    result: Mapped[dict[str, object] | None] = mapped_column(JSONB)
+
+
+class Refund(Base):
+    """Simulated refund ledger entry (no payment is made). One per reservation."""
+
+    __tablename__ = "refunds"
+    __table_args__ = (CheckConstraint("amount >= 0", name="amount_non_negative"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    hotel_id: Mapped[int] = mapped_column(ForeignKey("hotels.id", ondelete="CASCADE"), index=True)
+    reservation_id: Mapped[int] = mapped_column(ForeignKey("reservations.id"), unique=True)
+    approval_request_id: Mapped[int] = mapped_column(
+        ForeignKey("approval_requests.id"), unique=True
+    )
+    amount: Mapped[Decimal] = mapped_column(Numeric(12, 2))
+    currency: Mapped[str] = mapped_column(String(3))
+    policy_rule: Mapped[str] = mapped_column(String(32))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

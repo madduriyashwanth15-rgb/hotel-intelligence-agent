@@ -42,6 +42,10 @@ class Settings(BaseSettings):
     sql_db_user: str = "hotel_sql"
     sql_db_password: SecretStr | None = None
 
+    # Login role used by the MCP tool gateway (ADR-0020).
+    ops_db_user: str = "hotel_ops"
+    ops_db_password: SecretStr | None = None
+
     test_postgres_db: str = "hotel_agent_test"
 
     synthetic_seed: int = 42
@@ -78,6 +82,19 @@ class Settings(BaseSettings):
             drivername="postgresql+psycopg",
             username=self.sql_db_user,
             password=self.sql_db_password.get_secret_value(),
+            host=self.postgres_host,
+            port=self.postgres_port,
+            database=database or self.postgres_db,
+        )
+
+    def ops_database_url(self, database: str | None = None) -> URL:
+        """SQLAlchemy URL for the hotel_ops role (tool gateway, least privilege)."""
+        if self.ops_db_password is None:
+            raise ValueError("OPS_DB_PASSWORD is not set")
+        return URL.create(
+            drivername="postgresql+psycopg",
+            username=self.ops_db_user,
+            password=self.ops_db_password.get_secret_value(),
             host=self.postgres_host,
             port=self.postgres_port,
             database=database or self.postgres_db,

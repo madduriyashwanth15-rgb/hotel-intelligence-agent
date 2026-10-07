@@ -94,3 +94,13 @@ def sql_role_engine(seeded_engine: Engine, settings: Settings) -> Iterator[Engin
     engine = make_engine(settings.sql_database_url(settings.test_postgres_db))
     yield engine
     engine.dispose()
+
+
+@pytest.fixture(scope="session")
+def ops_role_engine(seeded_engine: Engine, settings: Settings) -> Iterator[Engine]:
+    """Raw connection as hotel_ops to the seeded test DB — no tool gateway in between."""
+    if settings.ops_db_password is None:
+        pytest.skip("OPS_DB_PASSWORD not set")
+    engine = make_engine(settings.ops_database_url(settings.test_postgres_db))
+    yield engine
+    engine.dispose()

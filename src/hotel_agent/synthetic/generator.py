@@ -32,7 +32,7 @@ from hotel_agent.db.models import (
 )
 from hotel_agent.synthetic.names import EMAIL_DOMAINS, FIRST_NAMES, LAST_NAMES
 
-GENERATOR_VERSION = "1.0.0"
+GENERATOR_VERSION = "1.1.0"  # 1.1.0: synthetic staff directory
 
 HOTEL_TZ = ZoneInfo("Asia/Kolkata")
 CHECK_IN_TIME = time(14, 0)
@@ -170,6 +170,30 @@ class HousekeepingTaskRow:
 
 
 @dataclass(frozen=True, slots=True)
+class StaffMemberRow:
+    id: int
+    hotel_id: int
+    staff_code: str
+    display_name: str
+    role: str
+    is_active: bool
+
+
+# Role-based display names only: these are simulated principals, not people.
+STAFF_DIRECTORY: tuple[tuple[str, str, str, bool], ...] = (
+    ("S-FD-01", "Front Desk Agent 01", "front_desk", True),
+    ("S-FD-02", "Front Desk Agent 02", "front_desk", True),
+    ("S-HK-01", "Room Attendant 01", "housekeeping", True),
+    ("S-HS-01", "Housekeeping Supervisor 01", "housekeeping_supervisor", True),
+    ("S-FOM-01", "Front Office Manager 01", "front_office_manager", True),
+    ("S-DM-01", "Duty Manager 01", "duty_manager", True),
+    ("S-DM-02", "Duty Manager 02", "duty_manager", True),
+    ("S-GM-01", "General Manager 01", "general_manager", True),
+    ("S-FD-99", "Former Front Desk Agent 99", "front_desk", False),
+)
+
+
+@dataclass(frozen=True, slots=True)
 class DatasetMetadataRow:
     key: str
     value: str
@@ -180,6 +204,7 @@ class SyntheticDataset:
     seed: int
     anchor_date: date
     hotels: list[HotelRow]
+    staff_members: list[StaffMemberRow]
     room_types: list[RoomTypeRow]
     rooms: list[RoomRow]
     guests: list[GuestRow]
@@ -191,6 +216,7 @@ class SyntheticDataset:
     def counts(self) -> dict[str, int]:
         return {
             "hotels": len(self.hotels),
+            "staff_members": len(self.staff_members),
             "room_types": len(self.room_types),
             "rooms": len(self.rooms),
             "guests": len(self.guests),
@@ -600,5 +626,9 @@ def generate(seed: int, anchor_date: date) -> SyntheticDataset:
         DatasetMetadataRow("seed", str(seed)),
         DatasetMetadataRow("anchor_date", anchor_date.isoformat()),
     ]
-    return SyntheticDataset(seed, anchor_date, [hotel], room_types, rooms, guests, reservations,
-                            charges, tasks, metadata)  # fmt: skip
+    staff = [
+        StaffMemberRow(i, hotel.id, code, name, role, active)
+        for i, (code, name, role, active) in enumerate(STAFF_DIRECTORY, start=1)
+    ]
+    return SyntheticDataset(seed, anchor_date, [hotel], staff, room_types, rooms, guests,
+                            reservations, charges, tasks, metadata)  # fmt: skip
