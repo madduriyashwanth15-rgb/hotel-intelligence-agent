@@ -47,7 +47,10 @@ large local LLMs (realistically: small quantized models on CPU only).
 Phase 1 stack: Python 3.12 · uv · FastAPI · PostgreSQL 16 · pgvector · SQLAlchemy 2 ·
 Alembic · psycopg 3 · pytest · ruff · mypy · Docker for local development.
 
-**Current project state: Phase 1 is complete (verified 2026-10-07).**
+Phase 2 additions: fastembed + BAAI/bge-small-en-v1.5 (ONNX, CPU, no PyTorch) ·
+hybrid retrieval in PostgreSQL (pgvector + full-text + RRF).
+
+**Current project state: Phases 1 and 2 are complete (verified 2026-10-07).**
 
 Implemented and tested:
 - PostgreSQL 16 + pgvector (local Docker, bound to 127.0.0.1)
@@ -60,11 +63,17 @@ Implemented and tested:
 - Structured JSON logging with request IDs
 - Automated tests (pytest), ruff, mypy --strict
 - Local Docker environment
+- Phase 2: synthetic knowledge base (15 docs), loader + chunker, local embeddings
+  (pinned, offline at runtime), migration 0003 (`kb_documents`, `kb_chunks`), idempotent
+  ingestion, hybrid retrieval as the read-only role, extractive cited answers with an
+  "I don't know" gate, `POST /knowledge/ask`, `hotel-kb` CLI, evaluation set with
+  held-out split and regression floors, prompt-injection tests
 
 ## 5. Planned AI architecture
 
-Future phases may introduce: local LLM, local embeddings, RAG, Text-to-SQL, LangGraph,
-MCP, human-in-the-loop, evaluation, observability.
+Future phases may introduce: local LLM (incl. LLM-generated RAG answers), Text-to-SQL,
+LangGraph, MCP, human-in-the-loop, observability. (Local embeddings, extractive RAG and
+retrieval evaluation are implemented as of Phase 2.)
 
 These are **NOT implemented** until the corresponding roadmap phase is actually completed
 and verified. Do not claim planned functionality as implemented.
@@ -162,7 +171,11 @@ docker compose up -d --wait          # Postgres 16 + pgvector (healthcheck)
 uv run alembic upgrade head          # apply migrations
 uv run hotel-seed [--reset]          # load synthetic data (seed 42, anchor 2026-10-01)
 uv run uvicorn hotel_agent.api.app:create_app --factory --host 127.0.0.1 --port 8000
-uv run pytest                        # needs the Postgres container for DB tests
+uv run hotel-kb download-model       # one-time embedding model download (~65 MB)
+uv run hotel-kb ingest               # embed data/knowledge_base into kb_chunks
+uv run hotel-kb ask "question"       # extractive answer with citations
+uv run hotel-kb eval --output kb_eval.json
+uv run pytest                        # needs Postgres; `model` tests need the model
 uv run ruff format --check . && uv run ruff check . && uv run mypy
 ```
 
@@ -175,3 +188,9 @@ uv run ruff format --check . && uv run ruff check . && uv run mypy
 - Tests drop/recreate `TEST_POSTGRES_DB` — it must never equal `POSTGRES_DB` (guarded).
 - The synthetic "today" is the anchor date **2026-10-01**, not the wall clock.
 - Tests must never call an LLM or any external API.
+- The embedding model loads with `local_files_only` and a pinned SHA-256; never let code
+  download at runtime. Tests marked `model` skip if `.models/` is missing.
+- Evidence thresholds (`KB_MIN_SIMILARITY`, `KB_MIN_COVERAGE`) are calibrated on the eval
+  **dev** split; after changing documents, chunking or answering, re-run `hotel-kb eval`
+  and recalibrate on dev — never tune on the test split.
+- Windows consoles default to cp1252; CLI output that may contain `₹` must be UTF-8.

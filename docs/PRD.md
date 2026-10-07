@@ -38,10 +38,22 @@ No user research has been done; these are working assumptions.
 
 ## 4. Capabilities and status
 
-### A. Hotel knowledge — PLANNED (Phase 2)
+### A. Hotel knowledge — TESTED (Phase 2, extractive answers)
 SOPs, policies, room information, F&B information, cancellation policies, emergency
-procedures, service recovery policies. Source documents will be synthetic and written
-for Grand Hills Resort.
+procedures, service recovery policies — 15 synthetic Grand Hills Resort documents.
+
+| Item | Status |
+|---|---|
+| Synthetic knowledge base (15 documents, all six topic areas) | TESTED |
+| Local embeddings (fastembed + bge-small-en-v1.5, CPU) | TESTED |
+| Hybrid retrieval (pgvector + PostgreSQL full-text + RRF) with citations | TESTED |
+| Extractive grounded answers + "I don't know" when evidence is weak | TESTED |
+| `POST /knowledge/ask` and `hotel-kb ask` | TESTED |
+| Retrieval / answer evaluation with held-out split and regression floors | TESTED |
+| Fluent LLM-generated answers | PLANNED (separate, owner-approved step) |
+
+Held-out results: retrieval Recall@5 1.00; answers contain the expected evidence 75% of
+the time; 78% of unanswerable questions refused (see ARCHITECTURE §2.9).
 
 ### B. Hotel data intelligence — data foundation TESTED; question answering PLANNED (Phase 3)
 Reservations, occupancy, rooms, revenue, housekeeping.
@@ -65,6 +77,7 @@ synthetic policy documents.
 | Item | Status |
 |---|---|
 | FastAPI service with `/health` and `/health/ready` | TESTED |
+| `POST /knowledge/ask` (knowledge Q&A) | TESTED |
 | Structured JSON logging with request IDs | TESTED |
 | Agent orchestration (LangGraph) | PLANNED (Phase 5) |
 | MCP tool server | PLANNED (Phase 4) |
@@ -98,7 +111,9 @@ than guessed numbers.
 ## 8. Open questions
 
 - Which local LLM (if any) is viable on this hardware for SQL and tool calling? To be
-  measured in Phases 2–3; Ollama is not installed until the owner approves.
+  measured in Phase 3+; Ollama is not installed until the owner approves.
+- Is extractive answering good enough for staff, or is LLM phrasing worth its RAM/latency
+  cost? Needs user feedback.
 - Is Docker Desktop's free licence applicable to the owner? (Fallbacks: Docker Engine in
   WSL2 or Podman.)
 - Will a UI be needed, and when?

@@ -17,6 +17,7 @@ are appended at the end; superseded decisions are marked, never deleted.
 | [0010](#adr-0010--extractive-answers-only-in-phase-2) | Extractive answers only in Phase 2 | Accepted | 2026-10-07 |
 | [0011](#adr-0011--hybrid-retrieval-pgvector--postgresql-full-text--rrf) | Hybrid retrieval: pgvector + PostgreSQL full-text + RRF | Accepted | 2026-10-07 |
 | [0012](#adr-0012--knowledge-base-documents-as-markdown-with-toml-front-matter) | Knowledge-base documents as Markdown with TOML front matter | Accepted | 2026-10-07 |
+| [0013](#adr-0013--evidence-gate-calibration-and-evaluation-methodology) | Evidence gate, calibration and evaluation methodology | Accepted | 2026-10-07 |
 
 Template for new entries: **Context → Decision → Consequences**, with Status and Date.
 
@@ -339,3 +340,49 @@ category, version) for citations, without adding parsing dependencies.
 - Zero extra dependencies for loading; documents are diff-able and reviewable in git.
 - Other formats need a future decision and loader.
 
+---
+
+## ADR-0013 — Evidence gate, calibration and evaluation methodology
+
+- Status: Accepted
+- Date: 2026-10-07
+
+### Context
+Extractive answering (ADR-0010) needs a rule for when to say "I don't know". With
+bge-small, cosine similarities of answerable and unanswerable questions overlap
+(answerable ≈ 0.59–0.88, unanswerable ≈ 0.51–0.72 on the dev split), so similarity alone
+separates them poorly (balanced accuracy 0.884 on dev).
+
+### Decision
+- **Two-signal gate:** answer only if the top vector similarity ≥ `KB_MIN_SIMILARITY`
+  **and** the IDF-weighted coverage of the query's content stems by the top-3 evidence
+  chunks ≥ `KB_MIN_COVERAGE`. IDF comes from PostgreSQL `ts_stat` over `kb_chunks`; stems
+  absent from the corpus get the maximum weight (an off-topic word like "casino" sinks
+  coverage); question-framing stems ("much", "long", "get", …) are ignored.
+- The vector signal is always measured, also in full-text-only mode.
+- **Methodology:** evaluation set `eval/kb_questions.json` (83 questions: 64 answerable
+  with verbatim evidence quotes, 19 unanswerable incl. operational-data and adversarial),
+  split alternately into `dev` (42) and `test` (41). All tuning — thresholds (grid search
+  maximising balanced accuracy), sentence-selection parameters, the query-instruction
+  choice — uses **dev only**; `test` is reported, never tuned on.
+- Calibrated values: `KB_MIN_SIMILARITY = 0.58`, `KB_MIN_COVERAGE = 0.45`; extraction
+  `max_sentences = 3`, `relative_margin = 0.08`; bge query instruction **on** (better
+  end-to-end on dev: balanced accuracy 0.9375 vs 0.9219, evidence-in-answer 0.81 vs 0.78,
+  although retrieval-only metrics were marginally better without it).
+- Regression floors (`tests/test_kb_quality.py`) sit ~1–2 questions below the measured
+  baseline.
+
+### Measured results (eval/results/kb_eval.json)
+- Hybrid retrieval — dev: doc Recall@5 0.97, evidence Recall@5 0.97, MRR@10 0.94;
+  test: 1.00 / 1.00 / 0.94. Vector-only had equal or slightly better top-1 on test
+  (Recall@1 0.97 vs 0.91) while hybrid improved Recall@5 / evidence recall on dev;
+  full-text alone was clearly weaker (Recall@1 0.78–0.81). ADR-0011 stands, with this
+  nuance recorded.
+- End-to-end — dev: answer rate 0.875, evidence-in-answer 0.81, refusal recall 1.00;
+  test: 0.81, 0.75, 0.78 (answered "spa opening hours" and "parking cost").
+
+### Consequences
+- The gate is explainable (two numbers returned with every answer) and cheap.
+- It is a heuristic: paraphrases using words absent from the documents can be refused;
+  near-topic questions can be answered. Any corpus or eval-set change requires re-running
+  `hotel-kb eval` and recalibrating on dev.

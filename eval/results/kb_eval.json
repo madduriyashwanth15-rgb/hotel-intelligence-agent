@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-10-07T07:15:59+00:00",
+  "generated_at": "2026-10-07T07:27:09+00:00",
   "embedding_model": "BAAI/bge-small-en-v1.5",
   "eval_set": {
     "path": "eval/kb_questions.json",
@@ -18,8 +18,8 @@
       "doc_recall@5": 0.9688,
       "mrr@10": 0.9576,
       "evidence_recall@5": 0.9375,
-      "latency_ms_p50": 21.4,
-      "latency_ms_p95": 27.7
+      "latency_ms_p50": 27.8,
+      "latency_ms_p95": 41.3
     },
     {
       "split": "test",
@@ -31,8 +31,8 @@
       "doc_recall@5": 0.9688,
       "mrr@10": 0.974,
       "evidence_recall@5": 0.9688,
-      "latency_ms_p50": 20.8,
-      "latency_ms_p95": 25.6
+      "latency_ms_p50": 28.5,
+      "latency_ms_p95": 35.7
     },
     {
       "split": "dev",
@@ -44,8 +44,8 @@
       "doc_recall@5": 0.9688,
       "mrr@10": 0.8698,
       "evidence_recall@5": 0.9688,
-      "latency_ms_p50": 8.8,
-      "latency_ms_p95": 12.0
+      "latency_ms_p50": 11.2,
+      "latency_ms_p95": 16.6
     },
     {
       "split": "test",
@@ -57,8 +57,8 @@
       "doc_recall@5": 0.9375,
       "mrr@10": 0.8674,
       "evidence_recall@5": 0.875,
-      "latency_ms_p50": 9.1,
-      "latency_ms_p95": 11.5
+      "latency_ms_p50": 10.6,
+      "latency_ms_p95": 13.8
     },
     {
       "split": "dev",
@@ -70,8 +70,8 @@
       "doc_recall@5": 0.9688,
       "mrr@10": 0.9375,
       "evidence_recall@5": 0.9688,
-      "latency_ms_p50": 30.4,
-      "latency_ms_p95": 35.5
+      "latency_ms_p50": 42.8,
+      "latency_ms_p95": 63.2
     },
     {
       "split": "test",
@@ -83,8 +83,8 @@
       "doc_recall@5": 1.0,
       "mrr@10": 0.9385,
       "evidence_recall@5": 1.0,
-      "latency_ms_p50": 30.8,
-      "latency_ms_p95": 37.8
+      "latency_ms_p50": 46.8,
+      "latency_ms_p95": 83.4
     },
     {
       "split": "dev",
@@ -96,8 +96,8 @@
       "doc_recall@5": 0.9688,
       "mrr@10": 0.942,
       "evidence_recall@5": 0.9375,
-      "latency_ms_p50": 17.5,
-      "latency_ms_p95": 21.8
+      "latency_ms_p50": 20.5,
+      "latency_ms_p95": 28.3
     },
     {
       "split": "test",
@@ -109,8 +109,8 @@
       "doc_recall@5": 1.0,
       "mrr@10": 0.9844,
       "evidence_recall@5": 1.0,
-      "latency_ms_p50": 19.1,
-      "latency_ms_p95": 22.7
+      "latency_ms_p50": 19.7,
+      "latency_ms_p95": 27.8
     },
     {
       "split": "dev",
@@ -122,8 +122,8 @@
       "doc_recall@5": 0.9688,
       "mrr@10": 0.8698,
       "evidence_recall@5": 0.9688,
-      "latency_ms_p50": 8.3,
-      "latency_ms_p95": 10.3
+      "latency_ms_p50": 9.2,
+      "latency_ms_p95": 11.8
     },
     {
       "split": "test",
@@ -135,8 +135,8 @@
       "doc_recall@5": 0.9375,
       "mrr@10": 0.8674,
       "evidence_recall@5": 0.875,
-      "latency_ms_p50": 8.5,
-      "latency_ms_p95": 11.7
+      "latency_ms_p50": 9.1,
+      "latency_ms_p95": 10.9
     },
     {
       "split": "dev",
@@ -148,8 +148,8 @@
       "doc_recall@5": 1.0,
       "mrr@10": 0.9385,
       "evidence_recall@5": 0.9688,
-      "latency_ms_p50": 26.4,
-      "latency_ms_p95": 31.5
+      "latency_ms_p50": 30.2,
+      "latency_ms_p95": 38.3
     },
     {
       "split": "test",
@@ -161,8 +161,8 @@
       "doc_recall@5": 1.0,
       "mrr@10": 0.9583,
       "evidence_recall@5": 1.0,
-      "latency_ms_p50": 27.8,
-      "latency_ms_p95": 33.7
+      "latency_ms_p50": 30.7,
+      "latency_ms_p95": 38.1
     }
   ],
   "calibration": {
@@ -185,8 +185,8 @@
     "refusal_recall": 1.0,
     "refusal_precision": 0.7143,
     "false_answers_on_unanswerable": [],
-    "latency_ms_p50": 197.2,
-    "latency_ms_p95": 392.9,
+    "latency_ms_p50": 208.3,
+    "latency_ms_p95": 401.1,
     "rows": [
       {
         "id": "A01",
@@ -623,8 +623,8 @@
       "U02",
       "U04"
     ],
-    "latency_ms_p50": 250.9,
-    "latency_ms_p95": 342.2,
+    "latency_ms_p50": 243.3,
+    "latency_ms_p95": 404.8,
     "rows": [
       {
         "id": "A02",
@@ -1038,5 +1038,5 @@
       }
     ]
   },
-  "wall_seconds": 28.0
+  "wall_seconds": 33.6
 }

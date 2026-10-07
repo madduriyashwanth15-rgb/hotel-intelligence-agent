@@ -29,12 +29,14 @@ Client ─► FastAPI (/chat, /approvals, /health)
               curated views)
 ```
 
-Planned principles (not yet implemented):
+Principles (status in brackets):
 
-- LLM and embeddings run **locally** (no paid APIs) — ADR-0002. Model choice is open and
-  constrained by an 8 GB, CPU-only machine.
-- **RAG:** answers must cite chunk/document IDs; low retrieval confidence → refuse rather
-  than guess; retrieved text is treated as data, never as instructions.
+- Embeddings run **locally** (no paid APIs) — ADR-0002/0009 [TESTED: fastembed +
+  bge-small-en-v1.5]. No LLM yet; any future LLM must also be local unless the owner
+  approves otherwise [PLANNED].
+- **RAG:** answers cite chunk/document IDs; weak evidence → refuse rather than guess;
+  retrieved text is treated as data, never as instructions [TESTED — extractive answers,
+  §2.9].
 - **Text-to-SQL:** LLM sees curated views only; generated SQL is parsed and validated
   (single `SELECT`, allowlisted relations, row limit); executed as the read-only role with
   a statement timeout; every query is logged.
@@ -45,15 +47,18 @@ Planned principles (not yet implemented):
   pending approvals survive restarts.
 - **Tests never call an LLM**; real-model evaluation runs as a separate suite.
 
-## 2. Current architecture (Phase 1) — TESTED
+## 2. Current architecture (Phases 1–2) — TESTED
 
 ```
 uvicorn ─► FastAPI app (create_app factory)
              ├─ RequestContextMiddleware  (X-Request-ID, JSON request log)
              └─ /health, /health/ready ─► SQLAlchemy engine ─► PostgreSQL 16 + pgvector
                                                                (Docker, 127.0.0.1 only)
+             └─ POST /knowledge/ask ─► ExtractiveAnswerer ─► Retriever ─► PostgreSQL
+                                          (read-only role)       (kb_chunks: pgvector + tsvector)
 hotel-seed CLI ─► generator.generate(seed, anchor_date) ─► loader (single transaction)
-alembic ─► migrations/ (0001 core schema, 0002 read-only role)
+hotel-kb CLI   ─► download-model | ingest | ask | eval
+alembic ─► migrations/ (0001 core schema, 0002 read-only role, 0003 knowledge base)
 ```
 
 ### 2.1 Code map
@@ -69,8 +74,19 @@ alembic ─► migrations/ (0001 core schema, 0002 read-only role)
 | `src/hotel_agent/db/session.py` | Engine factory, Alembic config, revision helpers | TESTED |
 | `src/hotel_agent/synthetic/generator.py` | Pure deterministic dataset generator | TESTED |
 | `src/hotel_agent/synthetic/seed.py` | Loader + `hotel-seed` CLI | TESTED |
+| `src/hotel_agent/api/knowledge.py` | `POST /knowledge/ask` | TESTED |
+| `src/hotel_agent/knowledge/documents.py` | Markdown + TOML front-matter loader/validation | TESTED |
+| `src/hotel_agent/knowledge/chunking.py` | Heading-aware chunker | TESTED |
+| `src/hotel_agent/knowledge/embeddings.py` | `Embedder` protocol, fastembed (pinned), hashing test embedder | TESTED |
+| `src/hotel_agent/knowledge/ingest.py` | Idempotent ingestion into `kb_documents` / `kb_chunks` | TESTED |
+| `src/hotel_agent/knowledge/retrieval.py` | Vector, full-text and hybrid (RRF) retrieval | TESTED |
+| `src/hotel_agent/knowledge/answer.py` | Evidence gate + extractive answers with citations | TESTED |
+| `src/hotel_agent/knowledge/evaluation.py` | Retrieval metrics, threshold calibration, end-to-end scoring | TESTED |
+| `src/hotel_agent/knowledge/cli.py` | `hotel-kb` command line | TESTED |
+| `data/knowledge_base/` | 15 synthetic hotel documents | — |
+| `eval/` | Evaluation set and saved results | — |
 | `migrations/` | Alembic environment and revisions | TESTED |
-| `tests/` | pytest suite (92 tests at Phase 1 completion) | — |
+| `tests/` | pytest suite (92 tests after Phase 1; 181 after Phase 2) | — |
 
 ### 2.2 Runtime infrastructure
 
@@ -78,7 +94,11 @@ alembic ─► migrations/ (0001 core schema, 0002 read-only role)
   `docker-compose.yml`; port bound to `127.0.0.1` only; named volume `pgdata`;
   `pg_isready` healthcheck.
 - Extensions created by migration 0001: `btree_gist` (exclusion constraint), `vector`
-  (installed for Phase 2; no vector columns exist yet).
+  (used by `kb_chunks.embedding` since Phase 2).
+- Embedding model: `BAAI/bge-small-en-v1.5` (quantized ONNX, Hugging Face repo
+  `Qdrant/bge-small-en-v1.5-onnx-Q`, revision `aa8f8b06…`, SHA-256 `51f1bd0a…`), cached in
+  the git-ignored `.models/` directory (65 MB). Downloaded once with
+  `hotel-kb download-model`; loaded with `local_files_only` and hash-verified at runtime.
 
 ### 2.3 Configuration
 
@@ -100,6 +120,8 @@ documented in `.env.example` (enforced by a test). `POSTGRES_HOST` defaults to
 | `folio_charges` | Posted charges per night (room, F&B, spa, minibar, laundry) — revenue source. |
 | `housekeeping_tasks` | Cleaning / turndown / inspection / maintenance tasks per room. |
 | `dataset_metadata` | Provenance key/values (`synthetic=true`, seed, generator version, load time). |
+| `kb_documents` | Knowledge-base documents (doc_key, title, category, version, hash); `CHECK (is_synthetic)`. |
+| `kb_chunks` | Chunks: section path, content, `vector(384)` embedding, model name, generated weighted `tsvector` (GIN index). |
 
 Integrity is enforced in the database, not only in code (ADR-0004):
 
@@ -137,6 +159,7 @@ contact details).
 |---|---|
 | `GET /health` | Liveness; never touches dependencies. |
 | `GET /health/ready` | 200 only if the DB is reachable **and** migrated to Alembic head; otherwise 503 with details. |
+| `POST /knowledge/ask` | `{question, mode?, category?}` → `{status, answer, citations[], evidence, latency_ms}`; 422 on invalid input; 503 if the read-only role or model is unavailable. |
 
 Engine connect timeout is 3 s so readiness fails fast instead of hanging.
 
@@ -153,6 +176,41 @@ See ADR-0003. `generate(seed, anchor_date)` is pure and deterministic; the loade
 in one transaction, refuses a non-empty database without `--reset`, and advances ID
 sequences past the explicit IDs.
 
+### 2.9 Knowledge base and grounded answers (Phase 2)
+
+Pipeline: `data/knowledge_base/*.md` → validated `KnowledgeDocument` (ADR-0012) →
+heading-aware chunks (≤300 estimated tokens; the estimate is verified ≥ the real tokenizer
+count for every chunk) → embeddings of `section_path + content` → `kb_chunks`.
+Ingestion skips unchanged documents (same hash and model), replaces changed ones, prunes
+removed ones, and writes in one transaction.
+
+Retrieval (ADR-0011), as the read-only role:
+- **vector:** cosine distance with pgvector, exact scan (96 chunks today);
+- **fts:** query words OR-ed into `to_tsquery('english', …)`, ranked by `ts_rank_cd`
+  (section headings weighted A, body B);
+- **hybrid (default):** top-20 of each fused with Reciprocal Rank Fusion (k = 60), top 5.
+- Queries: 1–500 characters, `top_k` 1–20, optional category; bound parameters only.
+
+Answering (ADR-0010, ADR-0013):
+1. Evidence gate: answer only if top vector similarity ≥ `KB_MIN_SIMILARITY` (0.58) **and**
+   IDF-weighted coverage of the query's content stems by the top-3 chunks ≥
+   `KB_MIN_COVERAGE` (0.45). Otherwise `insufficient_evidence` ("I don't know").
+2. Extraction: chunk text is split into sentences / list items, each scored against the
+   query (embedded with its section path); up to 3 units within 0.08 of the best are
+   returned verbatim, each followed by its citation `[DOC-KEY#chunk_index]`.
+3. Citations are validated to belong to the retrieved chunks.
+
+Measured on this laptop (i5-8250U, 2 embedding threads): model load 0.5 s; first API
+answer 1.7 s (lazy model load), then ~0.2–0.35 s per answered question and ~40 ms per
+refusal; ingestion of 15 docs / 96 chunks 9.8 s; peak RAM ~280–290 MB (CLI and API).
+
+Evaluation (`hotel-kb eval`, results in `eval/results/kb_eval.json`): 83 questions
+(64 answerable with verbatim evidence, 19 unanswerable incl. operational-data and
+adversarial), split dev/test. Thresholds and answer parameters were tuned on dev only;
+test is held out. Key held-out results: hybrid doc Recall@5 1.00, evidence Recall@5 1.00,
+MRR@10 0.94; end-to-end answer rate 0.81, evidence-in-answer 0.75, refusal recall 0.78.
+Regression floors are enforced by `tests/test_kb_quality.py`.
+
 ## 3. Known limitations (by design for Phase 1)
 
 - Single property; tables carry `hotel_id`, so multi-property is possible later (untested).
@@ -161,3 +219,15 @@ sequences past the explicit IDs.
 - No authentication yet (local-only, bound to 127.0.0.1). Planned for Phase 8.
 - Read-only role can currently read all tables, including guest contact columns
   (synthetic). Narrowing is a Phase 3 deliverable.
+
+### Phase 2 limitations
+
+- Answers are extractive (verbatim sentences), not fluent prose; multi-part questions may
+  get only part of the answer (evidence-in-answer 0.75 on the held-out split).
+- The refusal gate is a heuristic: paraphrases whose words are absent from the documents
+  (e.g. "phone" vs "telephone") can be refused, and near-topic questions can be answered
+  (held-out misses: spa opening hours, parking cost). Refusal recall 0.78 on test.
+- Thresholds are calibrated for this corpus and evaluation set; changing either requires
+  re-running `hotel-kb eval` and recalibrating on the dev split.
+- The evaluation set is small (83 questions) and written by the same author as the corpus.
+- The IDF statistics are cached per process and refreshed when the chunk table changes.

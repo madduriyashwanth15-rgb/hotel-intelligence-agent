@@ -7,7 +7,7 @@ IMPLEMENTED · TESTED · PLANNED · EXPERIMENTAL ([CLAUDE.md §13](../CLAUDE.md#
 | Phase | Name | Status |
 |---|---|---|
 | 1 | Foundations and synthetic data | ✅ Complete — TESTED (2026-10-07) |
-| 2 | Grounded RAG | IN PROGRESS (started 2026-10-07) |
+| 2 | Grounded RAG | ✅ Complete — TESTED (2026-10-07) |
 | 3 | Controlled Text-to-SQL | PLANNED — not started |
 | 4 | MCP tool server | PLANNED — not started |
 | 5 | LangGraph orchestration | PLANNED — not started |
@@ -38,31 +38,37 @@ Post-phase housekeeping (documentation only, no code changes):
 - [x] Project brain: `CLAUDE.md`, `docs/PRD.md`, `docs/ARCHITECTURE.md`, `docs/ROADMAP.md`,
       `docs/DECISIONS.md`, `docs/DEVELOPMENT_RULES.md` (2026-10-07)
 
-## Phase 2 — Grounded RAG (IN PROGRESS)
+## Phase 2 — Grounded RAG ✅ (2026-10-07)
 
 Approved decisions: ADR-0009 (fastembed + bge-small-en-v1.5), ADR-0010 (extractive answers
-only), ADR-0011 (hybrid retrieval), ADR-0012 (Markdown + TOML front matter).
-Out of scope for Phase 2: LLM answer generation, Ollama, LangGraph, MCP, Text-to-SQL,
-frontend, cloud deployment.
+only), ADR-0011 (hybrid retrieval), ADR-0012 (Markdown + TOML front matter); ADR-0013
+(evidence gate and evaluation methodology). Out of scope and not implemented: LLM answer
+generation, Ollama, LangGraph, MCP, Text-to-SQL, frontend, cloud deployment.
 
-Definition of Done:
+Definition of Done — all items verified (final run 2026-10-07):
 
 - [x] Decision records for embeddings, extractive answers, hybrid retrieval, document format
-- [ ] ~15 synthetic documents covering SOPs, cancellation, room info, F&B, emergency,
-      service recovery — consistent with Phase 1 data (room types, rates, hotel name)
-- [ ] Front-matter loader with validation, heading-aware chunker, `Embedder` protocol — tested
-- [ ] fastembed + pgvector installed; bge-small-en-v1.5 downloaded once, pinned, offline at
-      runtime; dimensions / RAM / latency measured
-- [ ] Migration 0003 (`kb_documents`, `kb_chunks`); `alembic check` clean; round-trip tested
-- [ ] `hotel-kb ingest`: idempotent; changed documents replaced transactionally
-- [ ] Vector, full-text and hybrid (RRF) retrieval as the read-only role — tested
-- [ ] Extractive answerer with citations and `insufficient_evidence` refusal — tested
-- [ ] `POST /knowledge/ask` + `hotel-kb ask` — tested and verified live
-- [ ] Evaluation with the real model: Recall@k, MRR, refusal precision/recall, latency;
-      vector vs FTS vs hybrid comparison; threshold calibrated; regression floor set
-- [ ] Measured RAM / disk / latency recorded
-- [ ] Prompt-injection fixture and input-limit tests
-- [ ] All checks pass (pytest, ruff, mypy); docs and roadmap updated; committed
+- [x] 15 synthetic documents covering SOPs, cancellation, room info, F&B, emergency,
+      service recovery — consistency with Phase 1 room types/rates/times is test-enforced
+- [x] Front-matter loader with validation, heading-aware chunker, `Embedder` protocol — tested
+- [x] fastembed + pgvector installed (no PyTorch); bge-small-en-v1.5 downloaded once
+      (65 MB), pinned revision + SHA-256, `local_files_only` at runtime; 384 dims verified
+- [x] Migration 0003 (`kb_documents`, `kb_chunks`); `alembic check` clean; round-trip tested
+- [x] `hotel-kb ingest`: idempotent (re-run: 15 unchanged, 0 embedded); changed documents
+      replaced transactionally; removed documents pruned
+- [x] Vector, full-text and hybrid (RRF) retrieval as the read-only role — tested
+- [x] Extractive answerer with citations and `insufficient_evidence` refusal — tested
+- [x] `POST /knowledge/ask` + `hotel-kb ask` — tested and verified live
+- [x] Evaluation with the real model: Recall@k, MRR, evidence recall, refusal
+      precision/recall, latency; vector vs FTS vs hybrid and query-instruction comparison;
+      thresholds calibrated on dev, reported on held-out test; regression floors in
+      `tests/test_kb_quality.py`
+- [x] Measured RAM / disk / latency recorded (ARCHITECTURE §2.9)
+- [x] Prompt-injection fixture and input-limit tests
+- [x] All checks pass (181 tests, ruff, mypy); docs and roadmap updated; committed
+
+Known Phase 2 limitations are listed in ARCHITECTURE §3 (extractive answers; heuristic
+refusal gate with 0.78 held-out refusal recall; small evaluation set).
 
 ## Phase 3 — Controlled Text-to-SQL (PLANNED)
 
@@ -119,3 +125,7 @@ Record future ideas here instead of implementing them early.
 - Room-status history table (status changes over time) if tools/analytics need it.
 - Composite FK ensuring a room's type belongs to the same hotel (relevant only for multi-property).
 - Lightweight local trace viewer for Phase 7.
+- RAG: local LLM to phrase extractive answers (needs owner approval and RAM headroom).
+- RAG: cross-encoder re-ranking or synonym expansion to reduce paraphrase refusals.
+- RAG: grow the evaluation set (more paraphrases, more near-topic unanswerables), ideally
+  with questions written by someone other than the corpus author.

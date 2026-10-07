@@ -137,7 +137,7 @@ def _cmd_eval(settings: Settings, args: argparse.Namespace) -> int:
     text = json.dumps(report, ensure_ascii=False, indent=2)
     if args.output:
         EVAL_RESULTS.mkdir(parents=True, exist_ok=True)
-        (EVAL_RESULTS / args.output).write_text(text + "\n", encoding="utf-8")
+        (EVAL_RESULTS / args.output).write_text(text + "\n", encoding="utf-8", newline="\n")
     print(text)
     return 0
 
