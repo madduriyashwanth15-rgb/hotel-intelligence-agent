@@ -7,12 +7,22 @@ express those, let alone grant them. Unknown fields are rejected.
 
 from __future__ import annotations
 
+import re
 from enum import StrEnum
 from typing import Annotated, Any
 
-from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    StringConstraints,
+    field_validator,
+    model_validator,
+)
 
 MAX_TOOL_ARGUMENTS = 20
+MAX_ARGUMENT_CHARS = 500
+ARGUMENT_KEY = re.compile(r"[a-z][a-z0-9_]{0,63}")
 
 
 class Route(StrEnum):
@@ -29,6 +39,19 @@ class ToolRequest(BaseModel):
     name: Annotated[str, StringConstraints(pattern=r"^[a-z][a-z_]{0,63}$")]
     # Passed to the ToolGateway unchanged; the gateway's strict schemas decide validity.
     arguments: dict[str, Any] = Field(default_factory=dict, max_length=MAX_TOOL_ARGUMENTS)
+
+    @field_validator("arguments")
+    @classmethod
+    def _scalar_arguments(cls, value: dict[str, Any]) -> dict[str, Any]:
+        # Every tool argument is a scalar; nested objects or huge strings are malformed.
+        for key, item in value.items():
+            if not ARGUMENT_KEY.fullmatch(key):
+                raise ValueError("malformed argument name")
+            if item is not None and not isinstance(item, str | int | float | bool):
+                raise ValueError("argument values must be scalars")
+            if isinstance(item, str) and len(item) > MAX_ARGUMENT_CHARS:
+                raise ValueError("argument value too long")
+        return value
 
 
 class RouteDecision(BaseModel):

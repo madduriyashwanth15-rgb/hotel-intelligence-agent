@@ -60,6 +60,16 @@ class Settings(BaseSettings):
     kb_min_similarity: float = Field(default=0.58, ge=0.0, le=1.0)
     kb_min_coverage: float = Field(default=0.45, ge=0.0, le=1.0)
 
+    # Agent router model (Phase 6, ADR-0025). "deterministic" needs nothing else; "ollama"
+    # needs a local Ollama server (loopback only). The fallback routes requests the
+    # primary model fails on (error / invalid output) with the deterministic router.
+    llm_provider: Literal["deterministic", "ollama"] = "deterministic"
+    llm_fallback: bool = True
+    ollama_base_url: str = "http://127.0.0.1:11434"
+    ollama_model: str = "qwen2.5:0.5b"
+    ollama_timeout_s: float = Field(default=60.0, gt=0, le=600)
+    ollama_num_ctx: int = Field(default=4096, ge=1024, le=32768)
+
     def resolve_path(self, path: Path) -> Path:
         return path if path.is_absolute() else PROJECT_ROOT / path
 

@@ -33,11 +33,12 @@ class HotelAgent:
         *,
         staff_code: str,
         role: str,
+        fallback: LLMClient | None = None,
     ) -> None:
         self.staff_code = staff_code
         self.role = role
         self.model_name = llm.name
-        self._graph = build_graph(Router(llm), knowledge, data, tools)
+        self._graph = build_graph(Router(llm, fallback), knowledge, data, tools)
 
     async def ask(self, question: str) -> dict[str, Any]:
         if not isinstance(question, str):

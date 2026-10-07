@@ -55,13 +55,17 @@ def build_graph(
 ) -> Any:
     async def route_node(state: AgentState) -> dict[str, Any]:
         catalog = await tools.list_tools()
-        decision = await anyio.to_thread.run_sync(router.decide, state["question"], catalog)
+        result = await anyio.to_thread.run_sync(router.route, state["question"], catalog)
+        decision = result.decision
         event = {
             "node": "route",
-            "model": router.llm.name,
+            "model": result.model,
             "route": decision.route.value,
             "reason": decision.reason,
             "tool": decision.tool.name if decision.tool else None,
+            "primary_failure": result.primary_failure,
+            "fallback_model": result.fallback_model,
+            "usage": result.usage,
         }
         return {"decision": decision.model_dump(mode="json"), "trace": [event]}
 
@@ -130,7 +134,10 @@ def build_graph(
         }
 
     async def refuse_node(state: AgentState) -> dict[str, Any]:
+        # Model-chosen labels outside the known set are not echoed back to staff.
         reason = str(state["decision"]["reason"])
+        if reason not in REFUSAL_MESSAGES:
+            reason = "not_supported"
         return {
             "outcome": {
                 "kind": "refusal",

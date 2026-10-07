@@ -24,6 +24,7 @@ from sqlalchemy import Engine
 from hotel_agent.agent.capabilities import DataAdapter, KnowledgeAdapter, McpToolClient
 from hotel_agent.agent.fake_llm import DeterministicRouterLLM
 from hotel_agent.agent.llm import LLMClient
+from hotel_agent.agent.ollama_llm import OllamaLLMClient
 from hotel_agent.agent.service import HotelAgent
 from hotel_agent.config import Settings
 from hotel_agent.db.session import make_engine
@@ -85,6 +86,7 @@ async def agent_session(
     staff_code: str,
     *,
     llm: LLMClient | None = None,
+    fallback: LLMClient | None = None,
     mcp_mode: McpMode = "memory",
 ) -> AsyncIterator[HotelAgent]:
     """One staff session: principal fixed here, MCP server built for that principal."""
@@ -116,7 +118,24 @@ async def agent_session(
             McpToolClient(session),
             staff_code=principal.staff_code,
             role=principal.role.value,
+            fallback=fallback,
         )
+
+
+def router_models(settings: Settings) -> tuple[LLMClient, LLMClient | None]:
+    """Primary router model and optional fallback, from settings (ADR-0025)."""
+    if settings.llm_provider == "deterministic":
+        return DeterministicRouterLLM(settings.synthetic_anchor_date), None
+    primary = OllamaLLMClient(
+        settings.ollama_base_url,
+        settings.ollama_model,
+        timeout_s=settings.ollama_timeout_s,
+        num_ctx=settings.ollama_num_ctx,
+    )
+    fallback = (
+        DeterministicRouterLLM(settings.synthetic_anchor_date) if settings.llm_fallback else None
+    )
+    return primary, fallback
 
 
 @asynccontextmanager
@@ -129,6 +148,11 @@ async def open_agent(
     llm: LLMClient | None = None,
     embedder: Embedder | None = None,
 ) -> AsyncIterator[HotelAgent]:
+    fallback: LLMClient | None = None
+    if llm is None:
+        llm, fallback = router_models(settings)
     with agent_resources(settings, database=database, embedder=embedder) as resources:
-        async with agent_session(resources, staff_code, llm=llm, mcp_mode=mcp_mode) as agent:
+        async with agent_session(
+            resources, staff_code, llm=llm, fallback=fallback, mcp_mode=mcp_mode
+        ) as agent:
             yield agent
