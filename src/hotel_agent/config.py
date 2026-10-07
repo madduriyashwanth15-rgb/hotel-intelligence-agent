@@ -1,0 +1,70 @@
+"""Typed application settings loaded from environment variables (and a local .env file)."""
+
+from __future__ import annotations
+
+from datetime import date
+from functools import lru_cache
+from typing import Literal
+
+from pydantic import Field, SecretStr
+from pydantic_settings import BaseSettings, SettingsConfigDict
+from sqlalchemy.engine import URL
+
+LogLevel = Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
+
+
+class Settings(BaseSettings):
+    """All configuration comes from the environment; there are no secret defaults."""
+
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+        case_sensitive=False,
+    )
+
+    app_env: Literal["development", "test", "production"] = "development"
+    log_level: LogLevel = "INFO"
+
+    postgres_host: str = "127.0.0.1"
+    postgres_port: int = Field(default=5432, ge=1, le=65535)
+    postgres_db: str = "hotel_agent"
+    postgres_user: str
+    postgres_password: SecretStr
+
+    readonly_db_user: str = "hotel_reader"
+    readonly_db_password: SecretStr | None = None
+
+    test_postgres_db: str = "hotel_agent_test"
+
+    synthetic_seed: int = 42
+    synthetic_anchor_date: date = date(2026, 10, 1)
+
+    def database_url(self, database: str | None = None) -> URL:
+        """SQLAlchemy URL for the admin/application user (password safely escaped)."""
+        return URL.create(
+            drivername="postgresql+psycopg",
+            username=self.postgres_user,
+            password=self.postgres_password.get_secret_value(),
+            host=self.postgres_host,
+            port=self.postgres_port,
+            database=database or self.postgres_db,
+        )
+
+    def readonly_database_url(self, database: str | None = None) -> URL:
+        """SQLAlchemy URL for the read-only login role."""
+        if self.readonly_db_password is None:
+            raise ValueError("READONLY_DB_PASSWORD is not set")
+        return URL.create(
+            drivername="postgresql+psycopg",
+            username=self.readonly_db_user,
+            password=self.readonly_db_password.get_secret_value(),
+            host=self.postgres_host,
+            port=self.postgres_port,
+            database=database or self.postgres_db,
+        )
+
+
+@lru_cache
+def get_settings() -> Settings:
+    return Settings()  # type: ignore[call-arg]  # required fields come from the environment

@@ -1,0 +1,61 @@
+[project]
+name = "hotel-intelligence-agent"
+version = "0.1.0"
+description = "AI copilot for hotel teams (Phase 1: foundations and synthetic data)"
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "alembic>=1.20.0",
+    "fastapi>=0.142.2",
+    "psycopg[binary]>=3.2",
+    "pydantic-settings>=2.15.0",
+    "sqlalchemy>=2.0",
+    "uvicorn>=0.54.0",
+]
+
+[project.scripts]
+hotel-seed = "hotel_agent.synthetic.seed:main"
+
+[build-system]
+requires = ["uv_build>=0.11,<0.12"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = "hotel_agent"
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "B", "UP", "SIM", "N", "S", "RUF", "PT"]
+ignore = []
+
+[tool.ruff.lint.per-file-ignores]
+# Tests use assert by design; synthetic generator uses non-crypto random by design.
+"tests/**" = ["S101", "S105", "S106"]
+"src/hotel_agent/synthetic/**" = ["S311"]
+"migrations/**" = ["S608"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+files = ["src", "tests", "migrations"]
+explicit_package_bases = true
+mypy_path = "src"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra --strict-markers"
+markers = [
+  "db: test requires the local PostgreSQL container",
+]
+
+[dependency-groups]
+dev = [
+    "httpx>=0.28.1",
+    "mypy>=2.4.0",
+    "pytest>=9.1.1",
+    "ruff>=0.16.10",
+]

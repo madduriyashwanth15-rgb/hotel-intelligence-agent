@@ -1,0 +1,53 @@
+"""Alembic environment: URL comes from settings (or a caller-supplied override)."""
+
+from __future__ import annotations
+
+from logging.config import fileConfig
+
+from alembic import context
+from sqlalchemy import create_engine, pool
+from sqlalchemy.engine import URL
+
+from hotel_agent.config import get_settings
+from hotel_agent.db.models import Base
+
+config = context.config
+
+# Only configure logging when invoked from the CLI, so tests keep their own logging.
+if config.config_file_name is not None and not config.attributes.get("skip_logging_config"):
+    fileConfig(config.config_file_name, disable_existing_loggers=False)
+
+target_metadata = Base.metadata
+
+
+def _database_url() -> URL:
+    override = config.attributes.get("database_url")
+    if isinstance(override, URL):
+        return override
+    return get_settings().database_url()
+
+
+def run_migrations_offline() -> None:
+    context.configure(
+        url=_database_url().render_as_string(hide_password=True),
+        target_metadata=target_metadata,
+        literal_binds=True,
+        dialect_opts={"paramstyle": "named"},
+    )
+    with context.begin_transaction():
+        context.run_migrations()
+
+
+def run_migrations_online() -> None:
+    engine = create_engine(_database_url(), poolclass=pool.NullPool)
+    with engine.connect() as connection:
+        context.configure(connection=connection, target_metadata=target_metadata)
+        with context.begin_transaction():
+            context.run_migrations()
+    engine.dispose()
+
+
+if context.is_offline_mode():
+    run_migrations_offline()
+else:
+    run_migrations_online()

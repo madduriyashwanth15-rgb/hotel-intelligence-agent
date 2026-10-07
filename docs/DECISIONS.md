@@ -1,0 +1,229 @@
+# Decision Log — Hotel Intelligence Agent
+
+Canonical record of architectural and project decisions (ADR format). Newest decisions
+are appended at the end; superseded decisions are marked, never deleted.
+
+| ADR | Title | Status | Date |
+|---|---|---|---|
+| [0001](#adr-0001--core-stack-and-single-postgresql-datastore) | Core stack and single PostgreSQL datastore | Accepted | 2026-10-07 |
+| [0002](#adr-0002--0-budget-local-only-development) | ₹0 budget, local-only development | Accepted | 2026-10-07 |
+| [0003](#adr-0003--deterministic-synthetic-data-for-one-fictional-hotel) | Deterministic synthetic data for one fictional hotel | Accepted | 2026-10-07 |
+| [0004](#adr-0004--schema-conventions-and-database-enforced-integrity) | Schema conventions and database-enforced integrity | Accepted | 2026-10-07 |
+| [0005](#adr-0005--least-privilege-read-only-role) | Least-privilege read-only role | Accepted | 2026-10-07 |
+| [0006](#adr-0006--synchronous-sqlalchemy-engine-for-now) | Synchronous SQLAlchemy engine for now | Accepted | 2026-10-07 |
+| [0007](#adr-0007--use-127001-for-local-database-connections) | Use 127.0.0.1 for local database connections | Accepted | 2026-10-07 |
+| [0008](#adr-0008--canonical-project-documentation-set) | Canonical project documentation set | Accepted | 2026-10-07 |
+
+Template for new entries: **Context → Decision → Consequences**, with Status and Date.
+
+---
+
+## ADR-0001 — Core stack and single PostgreSQL datastore
+
+- Status: Accepted
+- Date: 2026-10-07
+
+### Context
+The agent needs operational data (reservations, rooms, revenue), document embeddings for
+RAG (Phase 2) and durable agent state for human approval (Phase 6). The project must be
+simple to run locally and cost nothing.
+
+### Decision
+- **Python 3.12**, dependency management with **uv** (lockfile committed).
+- **FastAPI** for the HTTP API, **pydantic-settings** for configuration.
+- **PostgreSQL 16 + pgvector** (image `pgvector/pgvector:0.8.1-pg16`) in local Docker as
+  the *only* datastore: operational tables, vector embeddings and (later) LangGraph
+  checkpoints.
+- **SQLAlchemy 2** (typed ORM) with **psycopg 3**; schema changes only via **Alembic**.
+- **pytest**, **ruff** (lint + format), **mypy --strict**.
+
+### Consequences
+- One container, one backup story, one connection config; tests exercise the real database.
+- pgvector is adequate for a single hotel's documents; a dedicated vector DB can be
+  introduced later behind a retrieval interface if scale demands it.
+- Integrity rules (e.g. no double booking) live in the database itself (ADR-0004).
+
+---
+
+## ADR-0002 — ₹0 budget, local-only development
+
+- Status: Accepted
+- Date: 2026-10-07
+
+### Context
+The project owner set a hard constraint: building and developing this project must cost
+₹0. The development machine is a laptop with ~8 GB RAM, a 4-core i5-8250U CPU, ~58 GB free
+disk and no GPU usable for LLM inference (AMD Radeon R7 M460 2 GB / Intel UHD 620).
+
+### Decision
+- Everything runs locally. No cloud deployment, hosting or managed databases.
+- No paid services and no paid API calls. **No OpenAI API calls.**
+- Any dependency or service that *could* incur a charge — including free tiers that can
+  bill — requires explicit owner approval before use. A free tier is not assumed acceptable.
+- LLM work (Phase 2+) prefers local open-source models. Ollama is **not** installed and no
+  model is downloaded until the owner approves it.
+- Embeddings will use a small local model (candidate: fastembed + bge-small).
+- Observability uses structured logs (and later traces stored locally), not a hosted
+  service. GitHub Actions is not set up without approval.
+- Unit/integration tests never call an LLM; they use fakes.
+
+### Consequences
+- A small CPU-only local model is likely weak at Text-to-SQL and tool calling; evaluation
+  sets (Phases 2–3) will measure this, and any change of approach will be brought to the
+  owner with evidence.
+- Docker Desktop is free for personal use, education and small businesses (<250 employees
+  and <US$10M revenue); otherwise Docker Engine in WSL2 or Podman is the free alternative.
+  Applicability to the owner is not yet confirmed.
+
+---
+
+## ADR-0003 — Deterministic synthetic data for one fictional hotel
+
+- Status: Accepted
+- Date: 2026-10-07
+
+### Context
+No real customer data may be used. Development, tests and future evaluation sets (RAG,
+Text-to-SQL) need realistic, reproducible data with known answers.
+
+### Decision
+- One fictional property: **Grand Hills Resort** (Hillcrest, IN; INR; Asia/Kolkata),
+  80 rooms across 6 room types.
+- `hotel_agent.synthetic.generator.generate(seed, anchor_date)` is a **pure, deterministic
+  function**: same inputs → identical dataset. Defaults: `SYNTHETIC_SEED=42`,
+  `SYNTHETIC_ANCHOR_DATE=2026-10-01`. The anchor date is the business "today"; data spans
+  90 days before to 60 days after it.
+- Privacy by construction (enforced by tests):
+  - emails use RFC 2606 reserved domains (`example.com/.org/.net`);
+  - phone numbers use the NANP `555-0100…0199` range reserved for fiction;
+  - names are random pairings from generic first/last name lists.
+- Realism included: weekend and seasonal pricing, channel discounts, cancellations (~12%),
+  no-shows (~4% of past stays), returning guests, two out-of-order rooms with maintenance
+  tasks, dirty rooms with open cleaning tasks.
+- The database records provenance in `dataset_metadata` (`synthetic=true`, seed, anchor
+  date, generator version, load time).
+- The loader runs in one transaction and refuses to load into a non-empty database unless
+  `--reset` is given.
+
+### Consequences
+- Evaluation questions can have exact expected answers tied to (seed, anchor date,
+  generator version). Changing the generator requires bumping `GENERATOR_VERSION` and
+  regenerating expected answers.
+- Because the anchor date is fixed, "today" in the data is 2026-10-01 regardless of the
+  wall clock; queries about "today" must use the business date.
+
+---
+
+## ADR-0004 — Schema conventions and database-enforced integrity
+
+- Status: Accepted
+- Date: 2026-10-07 (made during Phase 1; recorded retroactively)
+
+### Context
+Future components (Text-to-SQL, tools, agents) will write and read data in ways that are
+hard to fully anticipate. Bugs in application code must not be able to corrupt core
+invariants.
+
+### Decision
+- Enum-like columns are `VARCHAR` + named `CHECK` constraints instead of native PostgreSQL
+  enums (adding a value is a constraint change, not an `ALTER TYPE`). Python `StrEnum`
+  classes in `db/models.py` define the allowed values.
+- A **GiST exclusion constraint** prevents overlapping active reservations for the same
+  room (`btree_gist` extension).
+- Cross-column rules as `CHECK` constraints (stay dates ordered; `cancelled_at` iff
+  cancelled; `completed_at` iff done; non-negative money/counts).
+- Constraint names follow a fixed naming convention (`ck_`, `fk_`, `uq_`, `ix_`, `pk_`).
+- Occupancy is derived from reservations, not stored; rooms store only housekeeping status.
+
+### Consequences
+- Invalid writes fail at the database with specific errors (tested for exclusion and check
+  violations).
+- psycopg serialises Python `Enum` members by **name**, so values must be passed as plain
+  strings (the loader converts to `.value`).
+
+---
+
+## ADR-0005 — Least-privilege read-only role
+
+- Status: Accepted
+- Date: 2026-10-07 (made during Phase 1; recorded retroactively)
+
+### Context
+Text-to-SQL (Phase 3) will execute LLM-generated SQL. Validation alone is not sufficient;
+the database account itself must be incapable of writes.
+
+### Decision
+- Migration 0002 creates a NOLOGIN group role `hotel_readonly` with `USAGE` + `SELECT` on
+  schema `public`, plus default privileges for future tables.
+- A login role (`READONLY_DB_USER`, password from `READONLY_DB_PASSWORD`) is a member, with
+  `default_transaction_read_only = on` and `statement_timeout = 5s`.
+- DDL is built server-side with `format(%I, %L)` so identifiers and the password are
+  safely quoted; passwords never appear in migration files.
+- Roles are cluster-wide, so creation is idempotent; downgrade revokes privileges but keeps
+  the roles.
+
+### Consequences
+- Writes are blocked by privileges, not just by the session default (tested).
+- Currently the role can read every table, including (synthetic) guest contact columns.
+  Phase 3 will restrict it to curated views.
+
+---
+
+## ADR-0006 — Synchronous SQLAlchemy engine for now
+
+- Status: Accepted
+- Date: 2026-10-07 (made during Phase 1; recorded retroactively)
+
+### Context
+FastAPI supports async, but Phase 1 has only health endpoints and a CLI loader.
+
+### Decision
+Use a synchronous SQLAlchemy engine (psycopg 3). FastAPI runs sync endpoints in its
+threadpool. Engine connect timeout is 3 s for the API.
+
+### Consequences
+Simpler code and tests. Revisit (async engine) if the agent needs high concurrency or
+long-running streaming responses; that would be a recorded decision change.
+
+---
+
+## ADR-0007 — Use 127.0.0.1 for local database connections
+
+- Status: Accepted
+- Date: 2026-10-07 (made during Phase 1; recorded retroactively)
+
+### Context
+The Postgres container port is bound to `127.0.0.1` only (not exposed to the network). On
+Windows, `localhost` resolves to IPv6 `::1` first, so each connection stalled on a timeout
+(~5 s measured, longer without a connect timeout) before falling back to IPv4.
+
+### Decision
+`POSTGRES_HOST` defaults to `127.0.0.1` in settings and `.env.example`.
+
+### Consequences
+Fast, reliable local connections; documented in README and CLAUDE.md gotchas.
+
+---
+
+## ADR-0008 — Canonical project documentation set
+
+- Status: Accepted
+- Date: 2026-10-07
+
+### Context
+Phase 1 produced `docs/architecture.md`, `docs/roadmap.md` and three ADR files in
+`docs/adr/`. The owner requested a permanent "project brain" with fixed canonical files.
+
+### Decision
+- `CLAUDE.md` (repo root) — primary persistent instructions for Claude.
+- `docs/PRD.md` — product requirements and capability status.
+- `docs/ARCHITECTURE.md` — canonical architecture (replaces `docs/architecture.md`).
+- `docs/ROADMAP.md` — canonical roadmap (replaces `docs/roadmap.md`).
+- `docs/DECISIONS.md` — canonical decision log (absorbs `docs/adr/0001–0003`, verbatim
+  content preserved).
+- `docs/DEVELOPMENT_RULES.md` — engineering rules and conventions.
+- `README.md` — human quick start; links to the above.
+
+### Consequences
+One place per topic; no duplicate ADR files that could drift. New decisions are appended
+here rather than added as separate files.
