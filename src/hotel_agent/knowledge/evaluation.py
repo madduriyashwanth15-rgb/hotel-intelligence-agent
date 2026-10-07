@@ -18,6 +18,7 @@ from typing import Any
 
 from hotel_agent.knowledge.answer import AnswerStatus, EvidenceThresholds, ExtractiveAnswerer
 from hotel_agent.knowledge.retrieval import RetrievalMode, Retriever
+from hotel_agent.stats import interval_block
 
 SIMILARITY_GRID = [round(0.50 + i * 0.005, 3) for i in range(61)]  # 0.50 .. 0.80
 COVERAGE_GRID = [round(i * 0.05, 2) for i in range(21)]  # 0.00 .. 1.00
@@ -185,6 +186,21 @@ def end_to_end(answerer: ExtractiveAnswerer, questions: list[EvalQuestion]) -> d
         if total_refusals
         else None,
         "false_answers_on_unanswerable": [r["id"] for r in refused_bad],
+        "confidence_intervals": interval_block(
+            {
+                "answer_rate_on_answerable": (len(answered_ok), len(answerable)),
+                "evidence_in_answer_rate": (
+                    sum(r["evidence_in_answer"] for r in rows),
+                    len(answerable),
+                ),
+                "cited_expected_doc_rate": (
+                    sum(r["cited_expected_doc"] for r in rows),
+                    len(answerable),
+                ),
+                "refusal_recall": (correct_refusals, len(unanswerable)),
+                "refusal_precision": (correct_refusals, total_refusals),
+            }
+        ),
         "latency_ms_p50": round(statistics.median(latencies), 1),
         "latency_ms_p95": round(_percentile(latencies, 95), 1),
         "rows": rows,

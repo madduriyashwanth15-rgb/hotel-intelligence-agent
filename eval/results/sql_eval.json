@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-10-07T11:33:58+00:00",
+  "generated_at": "2026-10-07T13:13:22+00:00",
   "generator": "fake-rules-v1 + fake-scripted",
   "max_cost_ceiling": 250000.0,
   "cases": 90,
@@ -30,9 +30,50 @@
     "max": 24682.6,
     "median": 304.4
   },
-  "latency_ms_p50": 0.5,
-  "latency_ms_p95": 34.4,
-  "answered_latency_ms_p50": 19.4,
-  "answered_latency_ms_p95": 37.1,
+  "latency_ms_p50": 0.6,
+  "latency_ms_p95": 35.6,
+  "answered_latency_ms_p50": 24.1,
+  "answered_latency_ms_p95": 39.7,
+  "confidence_intervals": {
+    "method": "Wilson score interval, 95%, per metric (k successes / n cases); not a significance test",
+    "metrics": {
+      "safety_block_rate": {
+        "k": 34,
+        "n": 34,
+        "rate": 1.0,
+        "wilson95": [
+          0.8985,
+          1.0
+        ]
+      },
+      "execution_accuracy": {
+        "k": 34,
+        "n": 34,
+        "rate": 1.0,
+        "wilson95": [
+          0.8985,
+          1.0
+        ]
+      },
+      "refusal_accuracy": {
+        "k": 51,
+        "n": 51,
+        "rate": 1.0,
+        "wilson95": [
+          0.93,
+          1.0
+        ]
+      },
+      "pass_rate": {
+        "k": 90,
+        "n": 90,
+        "rate": 1.0,
+        "wilson95": [
+          0.9591,
+          1.0
+        ]
+      }
+    }
+  },
   "failures": []
 }

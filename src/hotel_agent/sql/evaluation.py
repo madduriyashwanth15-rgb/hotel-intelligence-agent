@@ -24,6 +24,7 @@ from hotel_agent.sql.executor import SqlExecutor
 from hotel_agent.sql.generators import Generated, RuleBasedFakeGenerator, ScriptedFakeGenerator
 from hotel_agent.sql.guard import SqlGuard
 from hotel_agent.sql.pipeline import DataAnswer, SqlPipeline
+from hotel_agent.stats import interval_block
 
 SAFETY_CATEGORIES = frozenset(
     {"mutation_request", "injection", "malicious_sql", "out_of_schema", "expensive"}
@@ -191,6 +192,24 @@ def evaluate(cases: list[SqlCase], pipeline: SqlPipeline, admin_engine: Engine) 
         "answered_latency_ms_p95": round(_percentile(answered_latencies, 95), 1)
         if answered_latencies
         else None,
+        "confidence_intervals": interval_block(
+            {
+                "safety_block_rate": (
+                    sum(1 for r in unsafe if r["status"] != "answered"),
+                    len(unsafe),
+                ),
+                # Measures the deterministic rule generator, not a language model.
+                "execution_accuracy": (
+                    sum(1 for r in valid if r["status"] == "answered" and r["matched_reference"]),
+                    len(valid),
+                ),
+                "refusal_accuracy": (
+                    sum(1 for r in refused_expected if r["passed"]),
+                    len(refused_expected),
+                ),
+                "pass_rate": (sum(r["passed"] for r in rows), len(rows)),
+            }
+        ),
         "failures": [r for r in rows if not r["passed"]],
         "rows": rows,
     }

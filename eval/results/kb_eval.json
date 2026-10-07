@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-10-07T11:33:25+00:00",
+  "generated_at": "2026-10-07T13:12:45+00:00",
   "embedding_model": "BAAI/bge-small-en-v1.5",
   "eval_set": {
     "path": "eval/kb_questions.json",
@@ -18,8 +18,8 @@
       "doc_recall@5": 0.9688,
       "mrr@10": 0.9576,
       "evidence_recall@5": 0.9375,
-      "latency_ms_p50": 23.8,
-      "latency_ms_p95": 30.3
+      "latency_ms_p50": 25.5,
+      "latency_ms_p95": 33.0
     },
     {
       "split": "test",
@@ -31,8 +31,8 @@
       "doc_recall@5": 0.9688,
       "mrr@10": 0.974,
       "evidence_recall@5": 0.9688,
-      "latency_ms_p50": 23.1,
-      "latency_ms_p95": 30.3
+      "latency_ms_p50": 25.5,
+      "latency_ms_p95": 32.8
     },
     {
       "split": "dev",
@@ -44,8 +44,8 @@
       "doc_recall@5": 0.9688,
       "mrr@10": 0.8698,
       "evidence_recall@5": 0.9688,
-      "latency_ms_p50": 11.1,
-      "latency_ms_p95": 14.7
+      "latency_ms_p50": 8.6,
+      "latency_ms_p95": 12.6
     },
     {
       "split": "test",
@@ -57,8 +57,8 @@
       "doc_recall@5": 0.9375,
       "mrr@10": 0.8674,
       "evidence_recall@5": 0.875,
-      "latency_ms_p50": 10.4,
-      "latency_ms_p95": 12.4
+      "latency_ms_p50": 8.9,
+      "latency_ms_p95": 11.7
     },
     {
       "split": "dev",
@@ -70,8 +70,8 @@
       "doc_recall@5": 0.9688,
       "mrr@10": 0.9375,
       "evidence_recall@5": 0.9688,
-      "latency_ms_p50": 34.9,
-      "latency_ms_p95": 42.1
+      "latency_ms_p50": 31.9,
+      "latency_ms_p95": 44.3
     },
     {
       "split": "test",
@@ -83,8 +83,8 @@
       "doc_recall@5": 1.0,
       "mrr@10": 0.9385,
       "evidence_recall@5": 1.0,
-      "latency_ms_p50": 37.1,
-      "latency_ms_p95": 49.5
+      "latency_ms_p50": 33.1,
+      "latency_ms_p95": 45.0
     },
     {
       "split": "dev",
@@ -96,8 +96,8 @@
       "doc_recall@5": 0.9688,
       "mrr@10": 0.942,
       "evidence_recall@5": 0.9375,
-      "latency_ms_p50": 28.8,
-      "latency_ms_p95": 45.2
+      "latency_ms_p50": 20.6,
+      "latency_ms_p95": 24.3
     },
     {
       "split": "test",
@@ -109,8 +109,8 @@
       "doc_recall@5": 1.0,
       "mrr@10": 0.9844,
       "evidence_recall@5": 1.0,
-      "latency_ms_p50": 22.8,
-      "latency_ms_p95": 28.3
+      "latency_ms_p50": 19.1,
+      "latency_ms_p95": 25.3
     },
     {
       "split": "dev",
@@ -122,8 +122,8 @@
       "doc_recall@5": 0.9688,
       "mrr@10": 0.8698,
       "evidence_recall@5": 0.9688,
-      "latency_ms_p50": 10.3,
-      "latency_ms_p95": 19.2
+      "latency_ms_p50": 8.6,
+      "latency_ms_p95": 12.1
     },
     {
       "split": "test",
@@ -135,8 +135,8 @@
       "doc_recall@5": 0.9375,
       "mrr@10": 0.8674,
       "evidence_recall@5": 0.875,
-      "latency_ms_p50": 9.4,
-      "latency_ms_p95": 13.2
+      "latency_ms_p50": 8.2,
+      "latency_ms_p95": 10.5
     },
     {
       "split": "dev",
@@ -148,8 +148,8 @@
       "doc_recall@5": 1.0,
       "mrr@10": 0.9385,
       "evidence_recall@5": 0.9688,
-      "latency_ms_p50": 30.1,
-      "latency_ms_p95": 34.2
+      "latency_ms_p50": 28.6,
+      "latency_ms_p95": 35.1
     },
     {
       "split": "test",
@@ -161,8 +161,8 @@
       "doc_recall@5": 1.0,
       "mrr@10": 0.9583,
       "evidence_recall@5": 1.0,
-      "latency_ms_p50": 29.3,
-      "latency_ms_p95": 35.1
+      "latency_ms_p50": 31.1,
+      "latency_ms_p95": 40.6
     }
   ],
   "calibration": {
@@ -185,8 +185,58 @@
     "refusal_recall": 1.0,
     "refusal_precision": 0.7143,
     "false_answers_on_unanswerable": [],
-    "latency_ms_p50": 193.5,
-    "latency_ms_p95": 362.2
+    "confidence_intervals": {
+      "method": "Wilson score interval, 95%, per metric (k successes / n cases); not a significance test",
+      "metrics": {
+        "answer_rate_on_answerable": {
+          "k": 28,
+          "n": 32,
+          "rate": 0.875,
+          "wilson95": [
+            0.7193,
+            0.9503
+          ]
+        },
+        "evidence_in_answer_rate": {
+          "k": 26,
+          "n": 32,
+          "rate": 0.8125,
+          "wilson95": [
+            0.6469,
+            0.9111
+          ]
+        },
+        "cited_expected_doc_rate": {
+          "k": 27,
+          "n": 32,
+          "rate": 0.8438,
+          "wilson95": [
+            0.6825,
+            0.9314
+          ]
+        },
+        "refusal_recall": {
+          "k": 10,
+          "n": 10,
+          "rate": 1.0,
+          "wilson95": [
+            0.7225,
+            1.0
+          ]
+        },
+        "refusal_precision": {
+          "k": 10,
+          "n": 14,
+          "rate": 0.7143,
+          "wilson95": [
+            0.4535,
+            0.8828
+          ]
+        }
+      }
+    },
+    "latency_ms_p50": 201.6,
+    "latency_ms_p95": 442.2
   },
   "end_to_end_test": {
     "questions": 41,
@@ -201,8 +251,58 @@
       "U02",
       "U04"
     ],
-    "latency_ms_p50": 219.1,
-    "latency_ms_p95": 367.9
+    "confidence_intervals": {
+      "method": "Wilson score interval, 95%, per metric (k successes / n cases); not a significance test",
+      "metrics": {
+        "answer_rate_on_answerable": {
+          "k": 26,
+          "n": 32,
+          "rate": 0.8125,
+          "wilson95": [
+            0.6469,
+            0.9111
+          ]
+        },
+        "evidence_in_answer_rate": {
+          "k": 24,
+          "n": 32,
+          "rate": 0.75,
+          "wilson95": [
+            0.5789,
+            0.8675
+          ]
+        },
+        "cited_expected_doc_rate": {
+          "k": 25,
+          "n": 32,
+          "rate": 0.7812,
+          "wilson95": [
+            0.6125,
+            0.8898
+          ]
+        },
+        "refusal_recall": {
+          "k": 7,
+          "n": 9,
+          "rate": 0.7778,
+          "wilson95": [
+            0.4526,
+            0.9368
+          ]
+        },
+        "refusal_precision": {
+          "k": 7,
+          "n": 13,
+          "rate": 0.5385,
+          "wilson95": [
+            0.2914,
+            0.7679
+          ]
+        }
+      }
+    },
+    "latency_ms_p50": 259.4,
+    "latency_ms_p95": 432.4
   },
-  "wall_seconds": 29.9
+  "wall_seconds": 32.3
 }

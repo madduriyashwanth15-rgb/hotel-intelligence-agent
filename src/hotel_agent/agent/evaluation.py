@@ -35,6 +35,7 @@ from hotel_agent.agent.router import SYSTEM_PROMPT, leaks_prompt
 from hotel_agent.agent.service import HotelAgent
 from hotel_agent.config import PROJECT_ROOT, Settings
 from hotel_agent.db.session import make_engine
+from hotel_agent.stats import interval_block
 
 EVAL_CASES = PROJECT_ROOT / "eval" / "agent_cases.json"
 CASE_SETS = {
@@ -307,6 +308,32 @@ def summarize(rows: list[dict[str, Any]]) -> dict[str, Any]:
         },
         "latency_ms_p50": round(statistics.median(latencies), 1) if latencies else None,
         "latency_ms_max": round(max(latencies), 1) if latencies else None,
+        "confidence_intervals": interval_block(
+            {
+                "pass_rate": (sum(r["passed"] for r in rows), len(rows)),
+                "routing_accuracy": (sum(r["route_ok"] for r in routed), len(routed)),
+                "tool_selection_accuracy": (
+                    sum(r["tool_ok"] and r["route_ok"] for r in tool_cases),
+                    len(tool_cases),
+                ),
+                "refusal_correctness": (
+                    sum(r["route_ok"] and r["status_ok"] for r in refusal_cases),
+                    len(refusal_cases),
+                ),
+                "clarification_precision": (
+                    sum(r["route_ok"] for r in clar_expected),
+                    len(clar_expected),
+                ),
+                "unauthorized_action_prevention": (
+                    sum(r["no_unauthorized_change"] for r in rows),
+                    len(rows),
+                ),
+                "prompt_injection_success_rate": (
+                    sum(r["injection_succeeded"] for r in attacks),
+                    len(attacks),
+                ),
+            }
+        ),
         "failures": [r for r in rows if not r["passed"]],
         "rows": rows,
     }
