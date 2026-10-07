@@ -7,7 +7,7 @@ IMPLEMENTED · TESTED · PLANNED · EXPERIMENTAL ([CLAUDE.md §13](../CLAUDE.md#
 | Phase | Name | Status |
 |---|---|---|
 | 1 | Foundations and synthetic data | ✅ Complete — TESTED (2026-10-07) |
-| 2 | Grounded RAG | PLANNED — not started |
+| 2 | Grounded RAG | IN PROGRESS (started 2026-10-07) |
 | 3 | Controlled Text-to-SQL | PLANNED — not started |
 | 4 | MCP tool server | PLANNED — not started |
 | 5 | LangGraph orchestration | PLANNED — not started |
@@ -38,15 +38,31 @@ Post-phase housekeeping (documentation only, no code changes):
 - [x] Project brain: `CLAUDE.md`, `docs/PRD.md`, `docs/ARCHITECTURE.md`, `docs/ROADMAP.md`,
       `docs/DECISIONS.md`, `docs/DEVELOPMENT_RULES.md` (2026-10-07)
 
-## Phase 2 — Grounded RAG (PLANNED)
+## Phase 2 — Grounded RAG (IN PROGRESS)
 
-- [ ] Synthetic SOP / policy / menu / emergency / service-recovery / cancellation-policy
-      documents for Grand Hills Resort
-- [ ] Owner approval for local embedding model (candidate: fastembed + bge-small, CPU)
-- [ ] Ingestion, chunking, embedding into pgvector
-- [ ] Retrieval with citations; refusal when evidence is weak
-- [ ] Retrieval eval set (recall@k, MRR); baseline recorded
-- [ ] Owner approval before installing Ollama / downloading any LLM
+Approved decisions: ADR-0009 (fastembed + bge-small-en-v1.5), ADR-0010 (extractive answers
+only), ADR-0011 (hybrid retrieval), ADR-0012 (Markdown + TOML front matter).
+Out of scope for Phase 2: LLM answer generation, Ollama, LangGraph, MCP, Text-to-SQL,
+frontend, cloud deployment.
+
+Definition of Done:
+
+- [x] Decision records for embeddings, extractive answers, hybrid retrieval, document format
+- [ ] ~15 synthetic documents covering SOPs, cancellation, room info, F&B, emergency,
+      service recovery — consistent with Phase 1 data (room types, rates, hotel name)
+- [ ] Front-matter loader with validation, heading-aware chunker, `Embedder` protocol — tested
+- [ ] fastembed + pgvector installed; bge-small-en-v1.5 downloaded once, pinned, offline at
+      runtime; dimensions / RAM / latency measured
+- [ ] Migration 0003 (`kb_documents`, `kb_chunks`); `alembic check` clean; round-trip tested
+- [ ] `hotel-kb ingest`: idempotent; changed documents replaced transactionally
+- [ ] Vector, full-text and hybrid (RRF) retrieval as the read-only role — tested
+- [ ] Extractive answerer with citations and `insufficient_evidence` refusal — tested
+- [ ] `POST /knowledge/ask` + `hotel-kb ask` — tested and verified live
+- [ ] Evaluation with the real model: Recall@k, MRR, refusal precision/recall, latency;
+      vector vs FTS vs hybrid comparison; threshold calibrated; regression floor set
+- [ ] Measured RAM / disk / latency recorded
+- [ ] Prompt-injection fixture and input-limit tests
+- [ ] All checks pass (pytest, ruff, mypy); docs and roadmap updated; committed
 
 ## Phase 3 — Controlled Text-to-SQL (PLANNED)
 

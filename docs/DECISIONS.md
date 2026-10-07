@@ -13,6 +13,10 @@ are appended at the end; superseded decisions are marked, never deleted.
 | [0006](#adr-0006--synchronous-sqlalchemy-engine-for-now) | Synchronous SQLAlchemy engine for now | Accepted | 2026-10-07 |
 | [0007](#adr-0007--use-127001-for-local-database-connections) | Use 127.0.0.1 for local database connections | Accepted | 2026-10-07 |
 | [0008](#adr-0008--canonical-project-documentation-set) | Canonical project documentation set | Accepted | 2026-10-07 |
+| [0009](#adr-0009--local-embeddings-with-fastembed--bge-small-en-v15) | Local embeddings with fastembed + bge-small-en-v1.5 | Accepted | 2026-10-07 |
+| [0010](#adr-0010--extractive-answers-only-in-phase-2) | Extractive answers only in Phase 2 | Accepted | 2026-10-07 |
+| [0011](#adr-0011--hybrid-retrieval-pgvector--postgresql-full-text--rrf) | Hybrid retrieval: pgvector + PostgreSQL full-text + RRF | Accepted | 2026-10-07 |
+| [0012](#adr-0012--knowledge-base-documents-as-markdown-with-toml-front-matter) | Knowledge-base documents as Markdown with TOML front matter | Accepted | 2026-10-07 |
 
 Template for new entries: **Context → Decision → Consequences**, with Status and Date.
 
@@ -227,3 +231,111 @@ Phase 1 produced `docs/architecture.md`, `docs/roadmap.md` and three ADR files i
 ### Consequences
 One place per topic; no duplicate ADR files that could drift. New decisions are appended
 here rather than added as separate files.
+
+---
+
+## ADR-0009 — Local embeddings with fastembed + bge-small-en-v1.5
+
+- Status: Accepted (owner-approved 2026-10-07)
+- Date: 2026-10-07
+
+### Context
+Phase 2 needs text embeddings for retrieval. Constraints: ₹0, local only, CPU-only laptop
+with ~8 GB RAM (only ~0.3 GB free was observed during planning), and no large ML
+frameworks. Options considered: sentence-transformers (pulls PyTorch — rejected), Ollama
+embedding models (Ollama not approved — rejected), model2vec static embeddings (lightest,
+lower quality — kept as fallback), raw onnxruntime + tokenizers (fewer deps, more
+hand-written pre/post-processing), fastembed (ONNX Runtime, no PyTorch).
+
+### Decision
+- Library: **fastembed** (Apache-2.0), which runs models with **ONNX Runtime** (MIT).
+  **No PyTorch.**
+- Model: **BAAI/bge-small-en-v1.5** (MIT licence): 384 dimensions, 512-token limit,
+  ~67 MB quantized ONNX as distributed for fastembed.
+- One-time **anonymous** download from Hugging Face (no account, no API key, no payment —
+  owner-approved). The model is cached in a git-ignored project directory; after the
+  download, runtime runs offline and Hugging Face telemetry is disabled.
+- Code depends on an `Embedder` protocol; tests use a deterministic fake embedder and never
+  need the model.
+- The embedding model name is stored with every chunk so a model change is detectable.
+
+### Consequences
+- Disk ~0.3–0.5 GB total (venv + model); RAM a few hundred MB while embedding (to be
+  measured and recorded).
+- Changing the model requires re-ingestion (dimension and vector space change) and a new
+  decision record.
+
+---
+
+## ADR-0010 — Extractive answers only in Phase 2
+
+- Status: Accepted (owner-approved 2026-10-07)
+- Date: 2026-10-07
+
+### Context
+"Grounded answer generation" normally uses an LLM. No LLM is approved (Ollama not
+installed), and the machine's free RAM is too low for reliable local generation.
+
+### Decision
+- Phase 2 answers are **extractive**: the answer consists of the most relevant sentences
+  copied verbatim from retrieved chunks, each with a citation (`doc_key#chunk_index`).
+- When evidence is insufficient the system returns an explicit
+  `insufficient_evidence` response ("I don't know") instead of an answer.
+- The answerer sits behind an interface so an LLM-backed generator can be added later as a
+  **separate, separately approved** step. No LLM generation in Phase 2.
+
+### Consequences
+- Answers cannot contain unsupported (hallucinated) content; they may read less fluently.
+- Citations can only reference chunks that retrieval actually returned (validated).
+
+---
+
+## ADR-0011 — Hybrid retrieval: pgvector + PostgreSQL full-text + RRF
+
+- Status: Accepted (owner-approved 2026-10-07)
+- Date: 2026-10-07
+
+### Context
+Hotel questions mix paraphrase ("can I get my money back if I cancel late?") with exact
+terms (room codes, "late checkout", emergency code names). Vector search handles the
+former, keyword search the latter.
+
+### Decision
+- Keep **PostgreSQL + pgvector** as the vector store (ADR-0001); no external vector DB.
+- Run vector similarity (cosine) and PostgreSQL full-text search (`websearch_to_tsquery`)
+  and fuse the rankings with **Reciprocal Rank Fusion** (k = 60).
+- Exact (sequential) vector scan, no ANN index, while the corpus is small (hundreds of
+  chunks): 100% recall and negligible latency. Revisit (HNSW) above ~10k chunks.
+- Retrieval queries run as the **read-only role** (ADR-0005); ingestion uses the admin role.
+- The "insufficient evidence" threshold is **calibrated on the evaluation set**, not guessed.
+- The evaluation compares vector-only, keyword-only and hybrid so the choice stays
+  evidence-based.
+
+### Consequences
+- One database, one query path; no new infrastructure.
+- If evaluation shows hybrid does not beat vector-only, this decision is revisited.
+
+---
+
+## ADR-0012 — Knowledge-base documents as Markdown with TOML front matter
+
+- Status: Accepted
+- Date: 2026-10-07
+
+### Context
+Phase 2 needs synthetic hotel documents with reliable metadata (stable ID, title,
+category, version) for citations, without adding parsing dependencies.
+
+### Decision
+- Documents live in `data/knowledge_base/*.md`: a TOML front-matter block delimited by
+  `+++` lines (parsed with the standard-library `tomllib`), followed by Markdown.
+- Required metadata: `doc_key` (stable, unique, e.g. `POL-CANCEL-001`), `title`,
+  `category`, `version`, `effective_date`, `synthetic = true`.
+- Only Markdown is supported in Phase 2 (no PDF/DOCX parsing dependencies). Ingestion reads
+  only from the configured local directory and enforces size limits.
+- Chunking is heading-aware; each chunk records its `section_path` for citations.
+
+### Consequences
+- Zero extra dependencies for loading; documents are diff-able and reviewable in git.
+- Other formats need a future decision and loader.
+
