@@ -9,7 +9,7 @@ are appended at the end; superseded decisions are marked, never deleted.
 | [0002](#adr-0002--0-budget-local-only-development) | ₹0 budget, local-only development | Accepted | 2026-10-07 |
 | [0003](#adr-0003--deterministic-synthetic-data-for-one-fictional-hotel) | Deterministic synthetic data for one fictional hotel | Accepted | 2026-10-07 |
 | [0004](#adr-0004--schema-conventions-and-database-enforced-integrity) | Schema conventions and database-enforced integrity | Accepted | 2026-10-07 |
-| [0005](#adr-0005--least-privilege-read-only-role) | Least-privilege read-only role | Accepted | 2026-10-07 |
+| [0005](#adr-0005--least-privilege-read-only-role) | Least-privilege read-only role | Amended by ADR-0014 | 2026-10-07 |
 | [0006](#adr-0006--synchronous-sqlalchemy-engine-for-now) | Synchronous SQLAlchemy engine for now | Accepted | 2026-10-07 |
 | [0007](#adr-0007--use-127001-for-local-database-connections) | Use 127.0.0.1 for local database connections | Accepted | 2026-10-07 |
 | [0008](#adr-0008--canonical-project-documentation-set) | Canonical project documentation set | Accepted | 2026-10-07 |
@@ -18,6 +18,10 @@ are appended at the end; superseded decisions are marked, never deleted.
 | [0011](#adr-0011--hybrid-retrieval-pgvector--postgresql-full-text--rrf) | Hybrid retrieval: pgvector + PostgreSQL full-text + RRF | Accepted | 2026-10-07 |
 | [0012](#adr-0012--knowledge-base-documents-as-markdown-with-toml-front-matter) | Knowledge-base documents as Markdown with TOML front matter | Accepted | 2026-10-07 |
 | [0013](#adr-0013--evidence-gate-calibration-and-evaluation-methodology) | Evidence gate, calibration and evaluation methodology | Accepted | 2026-10-07 |
+| [0014](#adr-0014--analytics-schema-hotel_sql-role-and-narrowed-hotel_readonly) | Analytics schema, hotel_sql role and narrowed hotel_readonly | Accepted | 2026-10-07 |
+| [0015](#adr-0015--sql-safety-pipeline) | SQL safety pipeline | Accepted | 2026-10-07 |
+| [0016](#adr-0016--sql-generator-interface-and-deterministic-fakes) | SQL generator interface and deterministic fakes | Accepted | 2026-10-07 |
+| [0017](#adr-0017--business-date-and-metric-glossary) | Business date and metric glossary | Accepted | 2026-10-07 |
 
 Template for new entries: **Context → Decision → Consequences**, with Status and Date.
 
@@ -150,7 +154,8 @@ invariants.
 
 ## ADR-0005 — Least-privilege read-only role
 
-- Status: Accepted
+- Status: Accepted; **amended by ADR-0014** (2026-10-07): `hotel_readonly` is narrowed to
+  the knowledge-base tables; generated SQL runs as the separate `hotel_sql` role.
 - Date: 2026-10-07 (made during Phase 1; recorded retroactively)
 
 ### Context
@@ -386,3 +391,126 @@ separates them poorly (balanced accuracy 0.884 on dev).
 - It is a heuristic: paraphrases using words absent from the documents can be refused;
   near-topic questions can be answered. Any corpus or eval-set change requires re-running
   `hotel-kb eval` and recalibrating on dev.
+
+---
+
+## ADR-0014 — Analytics schema, hotel_sql role and narrowed hotel_readonly
+
+- Status: Accepted (owner-approved 2026-10-07)
+- Date: 2026-10-07
+
+### Context
+Phase 3 executes SQL produced by a generator (a fake now, possibly an LLM later). That SQL
+is untrusted. Inspection showed `hotel_readonly` (ADR-0005) could read every public table,
+including `guests` (names, emails, phones).
+
+### Decision
+- New schema **`analytics`** containing curated views only, owned by the admin role. Views
+  run with their owner's privileges, so readers need no rights on base tables. No view
+  exposes guest names, emails, phones or free-text notes.
+- New NOLOGIN group **`hotel_analytics`** with `USAGE` on `analytics` and `SELECT` on the
+  approved views only (explicit grants, no default privileges), and a login role
+  **`hotel_sql`** (`SQL_DB_USER` / `SQL_DB_PASSWORD`) that is its only member. Role defaults:
+  `default_transaction_read_only = on`, `statement_timeout = 3s`,
+  `idle_in_transaction_session_timeout = 10s`, `search_path = analytics`, connection
+  limit 5. `PUBLIC` loses `CREATE` on schema `public` (already the PG15+ default; made
+  explicit) and `hotel_sql` gets no rights on `public`.
+- **`hotel_readonly` is narrowed** to `SELECT` on `kb_documents` and `kb_chunks` only; the
+  broad `SELECT ON ALL TABLES` grant and the default privileges from migration 0002 are
+  revoked. Phase 2 retrieval keeps working.
+
+### Consequences
+- Even if the SQL guard is bypassed, generated SQL can only read the curated views and can
+  never write (tested by running raw SQL as `hotel_sql` without the guard).
+- New views must be explicitly granted to `hotel_analytics` in a migration.
+
+---
+
+## ADR-0015 — SQL safety pipeline
+
+- Status: Accepted (owner-approved 2026-10-07)
+- Date: 2026-10-07
+
+### Context
+Generated SQL must be treated as hostile input. Defence in depth: the guard must be strict
+on its own, and the database must be safe on its own.
+
+### Decision
+Pipeline: generator → **SqlGuard** (sqlglot, pure Python) → **EXPLAIN cost ceiling** →
+**executor** (`hotel_sql`, read-only transaction, `SET LOCAL statement_timeout`, row cap,
+always rollback) → deterministic formatter → JSON audit log.
+
+SqlGuard rejects unless *all* hold:
+1. SQL text ≤ 4,000 chars, no NUL/control characters.
+2. Parses (sqlglot, postgres dialect) into exactly one statement.
+3. Root is a SELECT or a set operation of SELECTs; no `exp.Command` fallback anywhere.
+4. No DML/DDL node anywhere in the tree (catches data-modifying CTEs), no `SELECT INTO`,
+   no locking clause, no recursive CTE.
+5. Every relation is an allowlisted `analytics` view (bare or `analytics.`-qualified) or a
+   CTE defined in the query; no table functions in FROM.
+6. Every function is allowlisted; unknown/anonymous functions, system functions and
+   wall-clock functions (`now()`, `CURRENT_DATE`, …) are rejected.
+7. Parameters: named placeholders only, all supplied, all used, typed and validated.
+8. Outer LIMIT forced to ≤ max_rows + 1, OFFSET ≤ 1,000, literal only.
+
+Failures map to stable reason codes (`unsafe_sql`, `disallowed_relation`,
+`disallowed_function`, `invalid_sql`, `invalid_parameters`, `too_expensive`, `timeout`,
+`execution_error`). The API returns the executed SQL (clearly labelled) separately from
+the natural-language answer. Logs contain a question fingerprint and SQL with literals
+masked — never the question text. JSON logs only; audit tables deferred.
+
+### Consequences
+- Semantically wrong but safe SQL cannot be blocked by safety checks; it is mitigated by
+  the glossary, by showing the SQL, and by evaluation against independent reference SQL.
+- sqlglot is pinned; the bypass corpus guards against parser behaviour changes.
+
+---
+
+## ADR-0016 — SQL generator interface and deterministic fakes
+
+- Status: Accepted (owner-approved 2026-10-07)
+- Date: 2026-10-07
+
+### Context
+No LLM is approved. The safety pipeline must be built and evaluated before any model.
+
+### Decision
+- `SqlGenerator` protocol: `generate(question, context) -> Generated | Refusal`, where
+  `SchemaContext` carries the business date, view specs, glossary and allowed values —
+  exactly what a future LLM prompt would need.
+- `RuleBasedFakeGenerator`: deterministic intent rules for a realistic subset of questions;
+  refuses mutations, ambiguous and unsupported questions.
+- `ScriptedFakeGenerator`: evaluation-only; emits given SQL to simulate a compromised or
+  hallucinating model, so the guard is tested independently of question understanding.
+- Any real LLM generator is a future, separately approved step.
+
+### Consequences
+Phase 3 answers only the question types the rules cover; everything else is refused with a
+clear code. Swapping in a model later changes only the generator.
+
+---
+
+## ADR-0017 — Business date and metric glossary
+
+- Status: Accepted (owner-approved 2026-10-07)
+- Date: 2026-10-07
+
+### Decision
+- "Today" is the synthetic business date **2026-10-01**, exposed as
+  `analytics.business_date` (from `dataset_metadata.anchor_date`). Generated SQL must not
+  use `CURRENT_DATE`, `now()` or other wall-clock functions (the guard rejects them).
+- Glossary (also given to generators in `SchemaContext`):
+  - **occupied room-night**: an active reservation (confirmed, checked_in, checked_out)
+    covering the night; **occupancy** = occupied rooms ÷ total rooms (80);
+  - **revenue** = posted folio charges (`daily_revenue`); **room revenue** = category
+    `room`; there is no on-the-books (future) revenue metric;
+  - **ADR** = room revenue ÷ occupied room-nights with posted room revenue;
+    **RevPAR** = room revenue ÷ total rooms;
+  - **average booking value** = mean `total_amount` of reservations that are not cancelled
+    and not no-shows;
+  - **this week** = Monday of the business week through the business date;
+    **this month** = 1st of the business month through the business date;
+    **last week / last month** = the previous full calendar week / month.
+- October-to-date revenue is currently ₹0 because no October nights have been posted
+  yet; answers state this explicitly instead of returning a bare zero.
+
