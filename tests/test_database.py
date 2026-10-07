@@ -129,11 +129,17 @@ def readonly_engine(seeded_engine: Engine, settings: Settings) -> Iterator[Engin
     engine.dispose()
 
 
-def test_readonly_role_can_select(readonly_engine: Engine) -> None:
+def test_readonly_role_reads_only_knowledge_base(readonly_engine: Engine) -> None:
+    """ADR-0014: hotel_readonly is narrowed to kb_documents / kb_chunks."""
     with readonly_engine.connect() as conn:
-        assert conn.execute(text("SELECT count(*) FROM reservations")).scalar_one() > 0
+        assert conn.execute(text("SELECT count(*) FROM kb_chunks")).scalar_one() >= 0
+        assert conn.execute(text("SELECT count(*) FROM kb_documents")).scalar_one() >= 0
         assert conn.execute(text("SHOW default_transaction_read_only")).scalar_one() == "on"
         assert conn.execute(text("SHOW statement_timeout")).scalar_one() == "5s"
+    for table in ("reservations", "guests", "folio_charges", "dataset_metadata"):
+        with readonly_engine.connect() as conn, pytest.raises(DBAPIError) as excinfo:
+            conn.execute(text(f"SELECT count(*) FROM {table}"))
+        assert isinstance(excinfo.value.orig, pg_errors.InsufficientPrivilege), table
 
 
 @pytest.mark.parametrize(

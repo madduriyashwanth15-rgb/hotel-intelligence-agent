@@ -38,6 +38,10 @@ class Settings(BaseSettings):
     readonly_db_user: str = "hotel_reader"
     readonly_db_password: SecretStr | None = None
 
+    # Login role that executes generated SQL against analytics views only (ADR-0014).
+    sql_db_user: str = "hotel_sql"
+    sql_db_password: SecretStr | None = None
+
     test_postgres_db: str = "hotel_agent_test"
 
     synthetic_seed: int = 42
@@ -61,6 +65,19 @@ class Settings(BaseSettings):
             drivername="postgresql+psycopg",
             username=self.postgres_user,
             password=self.postgres_password.get_secret_value(),
+            host=self.postgres_host,
+            port=self.postgres_port,
+            database=database or self.postgres_db,
+        )
+
+    def sql_database_url(self, database: str | None = None) -> URL:
+        """SQLAlchemy URL for the hotel_sql role (analytics views only)."""
+        if self.sql_db_password is None:
+            raise ValueError("SQL_DB_PASSWORD is not set")
+        return URL.create(
+            drivername="postgresql+psycopg",
+            username=self.sql_db_user,
+            password=self.sql_db_password.get_secret_value(),
             host=self.postgres_host,
             port=self.postgres_port,
             database=database or self.postgres_db,

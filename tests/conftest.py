@@ -84,3 +84,13 @@ def seeded_engine(migrated_engine: Engine, dataset: SyntheticDataset) -> Engine:
 def clear_knowledge_base(engine: Engine) -> None:
     with engine.begin() as conn:
         conn.execute(text("DELETE FROM kb_documents"))
+
+
+@pytest.fixture(scope="session")
+def sql_role_engine(seeded_engine: Engine, settings: Settings) -> Iterator[Engine]:
+    """Raw connection as hotel_sql to the seeded test DB — no SQL guard in between."""
+    if settings.sql_db_password is None:
+        pytest.skip("SQL_DB_PASSWORD not set")
+    engine = make_engine(settings.sql_database_url(settings.test_postgres_db))
+    yield engine
+    engine.dispose()
