@@ -18,8 +18,9 @@ from sqlalchemy.exc import DBAPIError
 from hotel_agent.sql.guard import RejectionCode, SqlRejectedError, ValidatedQuery
 
 DEFAULT_TIMEOUT_MS = 2_000
-# Planner cost ceiling; calibrated from the valid evaluation queries (see eval results).
-DEFAULT_MAX_COST = 500_000.0
+# Planner cost ceiling: ~10x the most expensive valid evaluation query (24,683 for
+# daily_occupancy scans; see eval/results/sql_eval.json). Cross joins of views exceed it.
+DEFAULT_MAX_COST = 250_000.0
 
 
 class ExecutionCode:

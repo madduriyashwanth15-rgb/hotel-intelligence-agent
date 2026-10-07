@@ -120,6 +120,14 @@ def parse_period(q: str, ctx: SchemaContext) -> Period | None:
         return Period("next week", f"{week_start} + 7", f"{week_start} + 13")
     if re.search(r"\b(this month|month to date|mtd)\b", q):
         return Period("this month", month_start, "b.d")
+    if re.search(r"\b(this year|year to date|ytd)\b", q):
+        return Period("this year", "date_trunc('year', b.d)::date", "b.d")
+    if re.search(r"\b(last|previous) year\b", q):
+        return Period(
+            "last year",
+            "(date_trunc('year', b.d) - interval '1 year')::date",
+            "date_trunc('year', b.d)::date - 1",
+        )
     if re.search(r"\b(last|previous) month\b", q):
         return Period(
             "last month",
@@ -171,6 +179,11 @@ _MUTATION = re.compile(
 _PII = re.compile(
     r"\b(name|names|email|e-mail|phone|mobile|contact|address|passport|id card|"
     r"who is|who's|whose|guest list|personal|card number|credit card)\b"
+)
+# Forecasts and periods the rules cannot express are refused rather than guessed.
+_UNSUPPORTED_TIME = re.compile(
+    r"\b(forecast|predict|projection|projected|will be|going to be|next year|next month|"
+    r"quarter|q[1-4])\b"
 )
 _VAGUE = re.compile(
     r"^(how are we doing|how is business|show me (the )?(numbers|data|everything)|"
@@ -313,6 +326,8 @@ def _cancellations(q: str, ctx: SchemaContext) -> Generated | Refusal | None:
     noshow = "noshow" in q
     period = parse_period(q, ctx)
     if period is None:
+        if re.search(r"\b(reservations?|bookings?)\b", q):
+            return None  # "how many reservations are cancelled" is a status count
         return _ambiguous_period("no-shows" if noshow else "cancellations")
     if noshow:
         sql = (
@@ -503,6 +518,12 @@ class RuleBasedFakeGenerator:
             return Refusal(
                 RefusalCode.UNSUPPORTED_QUESTION,
                 "Guest identities and contact details are not available for analytics.",
+            )
+        if _UNSUPPORTED_TIME.search(q):
+            return Refusal(
+                RefusalCode.UNSUPPORTED_QUESTION,
+                "Forecasts and quarterly or future-month periods are not supported; only "
+                "recorded data can be queried.",
             )
         if _VAGUE.search(q):
             return Refusal(
