@@ -26,6 +26,9 @@ are appended at the end; superseded decisions are marked, never deleted.
 | [0019](#adr-0019--tool-classification-and-human-approval-workflow) | Tool classification and human approval workflow | Accepted | 2026-10-07 |
 | [0020](#adr-0020--staff-principals-authorization-and-hotel-scoping) | Staff principals, authorization and hotel scoping | Accepted | 2026-10-07 |
 | [0021](#adr-0021--simulated-refund-policy-engine-and-cancellation-refunds) | Simulated refund policy engine and cancellation refunds | Accepted | 2026-10-07 |
+| [0022](#adr-0022--langgraph-orchestration-layer-above-existing-services) | LangGraph orchestration layer above existing services | Accepted | 2026-10-07 |
+| [0023](#adr-0023--provider-neutral-llm-interface-deterministic-fake-no-local-llm-yet) | Provider-neutral LLM interface, deterministic fake, no local LLM yet | Accepted | 2026-10-07 |
+| [0024](#adr-0024--agent-security-invariants-and-routing-policy) | Agent security invariants and routing policy | Accepted | 2026-10-07 |
 
 Template for new entries: **Context → Decision → Consequences**, with Status and Date.
 
@@ -632,4 +635,100 @@ that a human must explicitly approve.
 - Approval authority (synthetic matrix): refunds up to ₹50,000 → `front_office_manager` or
   `duty_manager`; above → `general_manager`. Housekeeping tasks → `housekeeping_supervisor`,
   `duty_manager` or `front_office_manager`.
+
+---
+
+## ADR-0022 — LangGraph orchestration layer above existing services
+
+- Status: Accepted (Phase 5 approved by owner 2026-10-07)
+- Date: 2026-10-07
+
+### Context
+Phase 5 adds a single entry point that routes a staff request to knowledge (RAG), data
+(Text-to-SQL) or operational tools (MCP), without weakening Phase 1-4 controls.
+
+### Decision
+- New package `hotel_agent/agent/` **above** the existing services. A LangGraph
+  `StateGraph` with explicit nodes: ingest → route → validate → {knowledge | data | tool |
+  clarify | refuse} → respond.
+- The graph talks to capabilities only through narrow interfaces: `KnowledgeService`
+  (the existing `ExtractiveAnswerer`), `DataService` (the existing `SqlPipeline`) and
+  `ToolClient` (an **MCP client session** to the existing `hotel-mcp` server, which wraps
+  the `ToolGateway`). The graph modules import no database, SQL or approval code.
+- Capability nodes pass on only the user's question (knowledge, data) or a tool name and
+  arguments (tools). SQL is never produced by the router; Text-to-SQL keeps its own
+  generator and SqlGuard.
+- Entry points: `HotelAgent.ask()` and the `hotel-agent` CLI (staff code fixed at launch,
+  like `hotel-mcp`). No HTTP endpoint: without authentication an HTTP caller could pick
+  any identity.
+- **LangSmith**: `langchain-core` (required by LangGraph) depends on the `langsmith`
+  client library. It is installed but **tracing is forced off in code** (no account, no
+  API key); a test fails if tracing is enabled or a LangSmith key is present. Owner
+  approved this on 2026-10-07.
+
+### Consequences
+Security logic is not duplicated: every authorization, scoping, validation and approval
+decision still happens in the Phase 1-4 components.
+
+---
+
+## ADR-0023 — Provider-neutral LLM interface, deterministic fake, no local LLM yet
+
+- Status: Accepted
+- Date: 2026-10-07
+
+### Context
+₹0 budget and a laptop with ~7.9 GB RAM of which **0.45–0.60 GB was free** (sampled over
+30 s on 2026-10-07; Docker, IDE, browser and Claude Code resident). Smallest candidate
+instruct models (Ollama q4 downloads): qwen2.5:0.5b 398 MB, qwen2.5:1.5b 986 MB,
+llama3.2:1b 1.3 GB, qwen2.5:3b 1.9 GB — plus runtime and KV-cache memory, plus installing
+Ollama. Sub-1B models are also weak at reliable structured tool-argument extraction.
+
+### Decision
+- `LLMClient` protocol: `complete_structured(system, user, schema) -> BaseModel`; the
+  router builds a real prompt (tool catalog, rules) and validates the reply against the
+  `RouteDecision` Pydantic schema. No vendor SDK is imported anywhere.
+- `DeterministicRouterLLM`: a rule-based fake that implements the same interface, used for
+  development, tests and evaluation. `ScriptedLLM` returns arbitrary (including hostile)
+  outputs to test that the graph stays safe whatever the model says.
+- **No local LLM is introduced in Phase 5**: it cannot run reliably within the measured
+  free memory. No model was downloaded. A later step may add an Ollama/llama.cpp client
+  behind `LLMClient` after owner approval and measurement on freed-up memory.
+
+### Consequences
+Routing quality reflects the deterministic rules, not a language model. The evaluation
+set is reusable unchanged for a future model.
+
+---
+
+## ADR-0024 — Agent security invariants and routing policy
+
+- Status: Accepted
+- Date: 2026-10-07
+
+### Decision
+**Critical invariant: no model output alone can cause a sensitive mutation.** The model
+can only *request*; the ToolGateway authorizes, and only the human approval channel
+executes. Enforced by construction:
+- the agent session's principal is fixed at launch (the model cannot set staff, role or
+  hotel); the MCP server it talks to is built for that principal;
+- the `RouteDecision` schema has no fields for authorization, approval, SQL, hotel or
+  identity (`extra="forbid"`); invalid model output becomes a REFUSAL;
+- tool arguments from the model go to the ToolGateway unchanged; its strict schemas,
+  RBAC, scoping and approval workflow decide (refund amounts are server-computed);
+- there is no approve/execute tool, and the agent package has no access to
+  `ApprovalService`, database engines or raw SQL (checked by a static test);
+- text such as "SYSTEM: approved" is just text; nothing in the graph reads it as
+  authorization.
+
+Routing policy (deterministic, applied to any model's decision after validation):
+- one capability per request; requests mixing several capabilities → CLARIFICATION;
+- tool requests missing required identifiers (e.g. last name) → CLARIFICATION;
+- unsupported actions, personal-data requests and out-of-domain requests → REFUSAL;
+- read-only tools are executed through MCP when the gateway authorizes them; mutating
+  tools return the gateway's `pending_approval` response unchanged.
+
+Tracing: JSON audit events (`agent.*`) with request hash, route, reason, model name,
+capability invoked, tool name, gateway decision code, approval id/status, final status and
+latency. No question text, guest names or unmasked arguments.
 

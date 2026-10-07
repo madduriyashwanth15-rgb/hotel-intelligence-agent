@@ -10,7 +10,7 @@ IMPLEMENTED · TESTED · PLANNED · EXPERIMENTAL ([CLAUDE.md §13](../CLAUDE.md#
 | 2 | Grounded RAG | ✅ Complete — TESTED (2026-10-07) |
 | 3 | Controlled Text-to-SQL | ✅ Complete — TESTED (2026-10-07) |
 | 4 | MCP tool server | ✅ Complete — TESTED (2026-10-07; simulated, no auth) |
-| 5 | LangGraph orchestration | PLANNED — not started |
+| 5 | LangGraph orchestration | IN PROGRESS (started 2026-10-07) |
 | 6 | Human approval for sensitive actions | PLANNED — not started |
 | 7 | Evaluation and observability hardening | PLANNED — not started |
 | 8 | Production hardening (auth/RBAC, rate limits) | PLANNED — not started |
@@ -127,11 +127,28 @@ Definition of Done — all items verified (final run 2026-10-07):
 - [x] Full regression: 603 tests, ruff, mypy; Phase 2 and 3 evaluations unchanged; docs
       updated; committed
 
-## Phase 5 — LangGraph orchestration (PLANNED)
+## Phase 5 — LangGraph orchestration (IN PROGRESS)
 
-- [ ] Router: knowledge (RAG) vs data (SQL) vs action (tools)
-- [ ] `/chat` endpoint
-- [ ] Routing eval set
+Decisions: ADR-0022 (LangGraph layer above existing services; LangSmith tracing disabled),
+ADR-0023 (LLM interface, deterministic fake, no local LLM yet), ADR-0024 (security
+invariants, routing policy). Out of scope: frontend, cloud, real PMS/payments, Phase 6.
+
+Definition of Done:
+
+- [x] Decision records (ADR-0022..0024); local-model feasibility measured (no download)
+- [ ] LangGraph installed; LangSmith tracing forced off and test-guarded
+- [ ] `LLMClient` interface, router prompt, `RouteDecision` schema, deterministic fake and
+      scripted (hostile) models
+- [ ] Graph: ingest → route → validate → knowledge | data | tool | clarify | refuse → respond
+- [ ] Capability adapters reuse ExtractiveAnswerer, SqlPipeline and MCP (ToolGateway)
+- [ ] `hotel-agent` CLI entry point; audit/trace events
+- [ ] Adversarial tests: prompt injection, tool-selection manipulation, approval bypass,
+      fake system messages, cross-hotel, ambiguous, unsupported, mixed, malicious SQL-like
+      content, malicious tool arguments; hostile-model tests for the invariant
+- [ ] Evaluation set + runner: routing accuracy, refusal, tool selection, RAG/SQL/MCP
+      routing, clarification rate, unauthorized-action prevention (must be 100%)
+- [ ] Measured RAM / disk / latency
+- [ ] Full regression (pytest, ruff, mypy); docs updated; committed
 
 ## Phase 6 — Human approval for sensitive actions (PLANNED)
 
