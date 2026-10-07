@@ -84,7 +84,7 @@ required). The refund engine implements the synthetic POL-CANCEL-001 policy.
 | Human approval for every mutating tool (four-eyes, authority limits, expiry, exactly once) | TESTED |
 | MCP stdio server + human approval CLI | TESTED |
 | Authentication of staff identity | PLANNED (Phase 8) |
-| Agent orchestration using the tools (LangGraph) | PLANNED (Phase 5) |
+| Agent orchestration using the tools (LangGraph, via MCP) | TESTED (deterministic router) |
 
 ### Platform
 
@@ -94,7 +94,8 @@ required). The refund engine implements the synthetic POL-CANCEL-001 policy.
 | `POST /knowledge/ask` (knowledge Q&A) | TESTED |
 | `POST /data/ask` (operational data Q&A, read-only) | TESTED |
 | Structured JSON logging with request IDs | TESTED |
-| Agent orchestration (LangGraph) | PLANNED (Phase 5) |
+| Agent orchestration (LangGraph) with deterministic router; single entry point `hotel-agent` | TESTED |
+| LLM-based router (local model) | PLANNED (needs owner approval and free memory) |
 | MCP tool server (stdio, simulated operations) | TESTED |
 | Human-in-the-loop approvals | PLANNED (Phase 6) |
 | Evaluation harness and tracing | PLANNED (Phase 7) |

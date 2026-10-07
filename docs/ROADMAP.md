@@ -10,7 +10,7 @@ IMPLEMENTED · TESTED · PLANNED · EXPERIMENTAL ([CLAUDE.md §13](../CLAUDE.md#
 | 2 | Grounded RAG | ✅ Complete — TESTED (2026-10-07) |
 | 3 | Controlled Text-to-SQL | ✅ Complete — TESTED (2026-10-07) |
 | 4 | MCP tool server | ✅ Complete — TESTED (2026-10-07; simulated, no auth) |
-| 5 | LangGraph orchestration | IN PROGRESS (started 2026-10-07) |
+| 5 | LangGraph orchestration | ✅ Complete — TESTED (2026-10-07; deterministic router) |
 | 6 | Human approval for sensitive actions | PLANNED — not started |
 | 7 | Evaluation and observability hardening | PLANNED — not started |
 | 8 | Production hardening (auth/RBAC, rate limits) | PLANNED — not started |
@@ -127,28 +127,32 @@ Definition of Done — all items verified (final run 2026-10-07):
 - [x] Full regression: 603 tests, ruff, mypy; Phase 2 and 3 evaluations unchanged; docs
       updated; committed
 
-## Phase 5 — LangGraph orchestration (IN PROGRESS)
+## Phase 5 — LangGraph orchestration ✅ (2026-10-07)
 
-Decisions: ADR-0022 (LangGraph layer above existing services; LangSmith tracing disabled),
-ADR-0023 (LLM interface, deterministic fake, no local LLM yet), ADR-0024 (security
-invariants, routing policy). Out of scope: frontend, cloud, real PMS/payments, Phase 6.
+Decisions: ADR-0022 (LangGraph layer above existing services; LangSmith tracing forced off,
+owner approved), ADR-0023 (LLM interface, deterministic fake, no local LLM yet), ADR-0024
+(security invariants, routing policy). Not implemented (out of scope): real LLM, frontend,
+cloud, real PMS/payments, Phase 6.
 
-Definition of Done:
+Definition of Done — all items verified (final run 2026-10-07):
 
-- [x] Decision records (ADR-0022..0024); local-model feasibility measured (no download)
-- [ ] LangGraph installed; LangSmith tracing forced off and test-guarded
-- [ ] `LLMClient` interface, router prompt, `RouteDecision` schema, deterministic fake and
+- [x] Decision records (ADR-0022..0024); local-model feasibility measured (no download):
+      0.45–0.60 GB free RAM vs ≥ 398 MB smallest instruct model + runtime
+- [x] LangGraph 1.2.14 installed (+14 MB); LangSmith tracing forced off and test-guarded
+- [x] `LLMClient` interface, router prompt, `RouteDecision` schema, deterministic fake and
       scripted (hostile) models
-- [ ] Graph: ingest → route → validate → knowledge | data | tool | clarify | refuse → respond
-- [ ] Capability adapters reuse ExtractiveAnswerer, SqlPipeline and MCP (ToolGateway)
-- [ ] `hotel-agent` CLI entry point; audit/trace events
-- [ ] Adversarial tests: prompt injection, tool-selection manipulation, approval bypass,
-      fake system messages, cross-hotel, ambiguous, unsupported, mixed, malicious SQL-like
-      content, malicious tool arguments; hostile-model tests for the invariant
-- [ ] Evaluation set + runner: routing accuracy, refusal, tool selection, RAG/SQL/MCP
-      routing, clarification rate, unauthorized-action prevention (must be 100%)
-- [ ] Measured RAM / disk / latency
-- [ ] Full regression (pytest, ruff, mypy); docs updated; committed
+- [x] Graph: route → validate → knowledge | data | tool | clarify | refuse → respond
+- [x] Capability adapters reuse ExtractiveAnswerer, SqlPipeline and MCP (ToolGateway);
+      static test: graph modules have no DB/SQL/gateway/approval imports
+- [x] `hotel-agent` CLI entry point (in-memory or stdio MCP), verified live; audit/trace
+- [x] Adversarial tests incl. prompt injection, tool-selection manipulation, approval
+      bypass, fake system messages, cross-hotel, ambiguous, unsupported, mixed, SQL-like
+      content, malicious tool arguments, hostile model outputs
+- [x] Evaluation: 92/92 tuned set (first run 87/92), 21/24 held-out set (run once);
+      unauthorized-action prevention 1.00 on both; regression floors in tests
+- [x] Measured RAM / disk / latency (ARCHITECTURE §2.12)
+- [x] Full regression: 634 tests, ruff, mypy; Phase 2-3 evaluations unchanged; docs
+      updated; committed
 
 ## Phase 6 — Human approval for sensitive actions (PLANNED)
 
@@ -170,9 +174,8 @@ Definition of Done:
 
 ## Known issues / follow-ups
 
-- Starlette emits a deprecation warning recommending `httpx2` for `TestClient`. httpx2 was
-  verified in Phase 4 as a legitimate BSD-3 package (httpx author, maintained by Pydantic)
-  but is not installed; switching the test client is optional future work.
+- Resolved in Phase 5: the Starlette `httpx2` deprecation warning disappeared once
+  `httpx2` (BSD-3, verified in Phase 4) arrived as a LangGraph dependency.
 - No pre-commit hooks or CI yet (CI requires owner approval per ADR-0002).
 - Git repository initialised but **no commits yet**; awaiting owner instruction to commit.
 - Docker Desktop licence applicability not yet confirmed by the owner (ADR-0002).
@@ -193,6 +196,9 @@ Record future ideas here instead of implementing them early.
 - Tools: authentication for MCP/CLI principals (Phase 8); approval UI or HTTP endpoints;
   persistent per-principal rate limits; tamper-evident audit store.
 - Tools: unit tests for the `hotel-kb` / `hotel-sql` CLIs (currently verified live only).
+- Agent: real local LLM behind `LLMClient` once memory allows (owner approval; re-run both
+  agent evaluation sets); multi-step plans for mixed requests; semantic router using the
+  existing embedding model; LangGraph `interrupt()` for approvals; hotel-scoped analytics.
 - Synthetic data: spread cancellation timestamps more realistically (they cluster before
   the business date today).
 - RAG: grow the evaluation set (more paraphrases, more near-topic unanswerables), ideally

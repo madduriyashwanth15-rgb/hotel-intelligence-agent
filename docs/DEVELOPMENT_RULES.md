@@ -122,6 +122,14 @@ A change is not "done" until all of the above pass.
 - Add adversarial tests (unauthorized, malformed, cross-hotel, injection-style, quantity
   abuse, chaining) for every new tool; keep the database-layer `hotel_ops` tests passing.
 
+### Agent orchestration (Phase 5)
+
+- Never rely on the model for authorization; add new capabilities only through interfaces
+  that call existing guarded components.
+- Every routing change: re-run `hotel-agent eval`; unauthorized-action prevention must stay
+  1.00; report held-out results without tuning on them.
+- Add hostile-model (`ScriptedLLM`) tests for any new route or tool path.
+
 ## 9. Synthetic data rules
 
 - All data describes the fictional Grand Hills Resort.

@@ -44,11 +44,14 @@ Principles (status in brackets):
 - **Tools behind MCP:** typed schemas; read vs write classification; write tools go
   through human approval; tool logic lives in a plain service layer so MCP is a thin
   wrapper [TESTED, §2.11 — simulated operations, no authentication yet].
-- **Human approval:** LangGraph `interrupt()` with a Postgres-backed checkpointer so
-  pending approvals survive restarts.
+- **Orchestration:** LangGraph routes each request to knowledge, data or tools; the model
+  is an orchestrator, never the security boundary [TESTED with a deterministic router
+  model, §2.12; no real LLM yet].
+- **Human approval:** pending approvals are durable rows in PostgreSQL decided through the
+  human channel [TESTED, §2.11]; LangGraph `interrupt()` integration remains PLANNED.
 - **Tests never call an LLM**; real-model evaluation runs as a separate suite.
 
-## 2. Current architecture (Phases 1–4) — TESTED
+## 2. Current architecture (Phases 1–5) — TESTED
 
 ```
 uvicorn ─► FastAPI app (create_app factory)
@@ -62,6 +65,10 @@ hotel-seed CLI ─► generator.generate(seed, anchor_date) ─► loader (singl
                                     (hotel_sql role, analytics.* views only)
 hotel-kb CLI   ─► download-model | ingest | ask | eval
 hotel-sql CLI  ─► ask | eval
+hotel-agent (LangGraph) ─► route ─► validate ─┬─ knowledge ─► ExtractiveAnswerer
+                                              ├─ data      ─► SqlPipeline (SqlGuard, hotel_sql)
+                                              ├─ tool      ─► MCP session ─► hotel-mcp ─► ToolGateway
+                                              └─ clarify / refuse ──────────────► respond
 hotel-mcp (MCP stdio) ─► ToolGateway ─► tools (hotel_ops role) ─► PostgreSQL
 hotel-ops CLI (human) ─► ApprovalService ─► executes approved mutations exactly once
 alembic ─► migrations/ (0001 core, 0002 read-only, 0003 KB, 0004 analytics, 0005 ops)
@@ -107,10 +114,20 @@ alembic ─► migrations/ (0001 core, 0002 read-only, 0003 KB, 0004 analytics, 
 | `src/hotel_agent/ops/audit.py` | Masked audit events | TESTED |
 | `src/hotel_agent/ops/mcp_server.py` | `hotel-mcp` stdio MCP server | TESTED |
 | `src/hotel_agent/ops/cli.py` | `hotel-ops` human approval CLI | TESTED |
+| `src/hotel_agent/agent/schemas.py` | `RouteDecision` structured output (no auth/SQL/identity fields) | TESTED |
+| `src/hotel_agent/agent/llm.py` | Provider-neutral `LLMClient`, `ScriptedLLM` | TESTED |
+| `src/hotel_agent/agent/router.py` | Prompt, model call, schema validation → refusal on failure | TESTED |
+| `src/hotel_agent/agent/fake_llm.py` | `DeterministicRouterLLM` (rule-based stand-in) | TESTED |
+| `src/hotel_agent/agent/capabilities.py` | Knowledge/Data/Tool interfaces + adapters over existing services | TESTED |
+| `src/hotel_agent/agent/graph.py` | LangGraph `StateGraph` | TESTED |
+| `src/hotel_agent/agent/service.py` | `HotelAgent` entry point + audit event | TESTED |
+| `src/hotel_agent/agent/factory.py` | Composition root (engines, MCP memory/stdio sessions) | TESTED |
+| `src/hotel_agent/agent/evaluation.py` | Routing + safety evaluation | TESTED |
+| `src/hotel_agent/agent/cli.py` | `hotel-agent` CLI | TESTED (live) |
 | `data/knowledge_base/` | 15 synthetic hotel documents | — |
 | `eval/` | Evaluation set and saved results | — |
 | `migrations/` | Alembic environment and revisions | TESTED |
-| `tests/` | pytest suite (92 after Phase 1; 181 after Phase 2; 458 after Phase 3; 603 after Phase 4) | — |
+| `tests/` | pytest suite (92 / 181 / 458 / 603 / 634 after Phases 1–5) | — |
 
 ### 2.2 Runtime infrastructure
 
@@ -325,6 +342,53 @@ Measured (dev DB, this laptop): read tools p50 17–24 ms (p95 ≤ 33 ms); rejec
 MCP in-memory round trip 23.5 ms; `hotel-mcp` process ~96 MB RSS; benchmark process peak
 99 MB. `mcp` + `pytest-cov` added 32 MB to the venv. Coverage: 91% overall, 94% for `ops`.
 
+### 2.12 Agent orchestration (Phase 5)
+
+Placement (ADR-0022): `hotel_agent/agent/` sits above the existing services. The graph
+modules import no database, SQL-execution, gateway or approval code (static test).
+
+LangGraph `StateGraph` (state: `question`, `request_sha256`, `decision`, `outcome`,
+`response`, `trace` [append-only]):
+
+| Node | Does | Security role |
+|---|---|---|
+| `route` | builds prompt (tool catalog from MCP `list_tools`), calls `LLMClient`, validates JSON against `RouteDecision` | invalid/failed output → REFUSAL |
+| `validate` | tool name must exist in the MCP catalog | unknown tool → REFUSAL (gateway would reject too) |
+| `knowledge` | `ExtractiveAnswerer.answer(question)` | Phase 2 evidence gate |
+| `data` | `SqlPipeline.ask(question)` — the router never writes SQL | Phase 3 SqlGuard + `hotel_sql` |
+| `tool` | MCP `call_tool(name, arguments)` with arguments unchanged | Phase 4 ToolGateway: RBAC, scoping, validation, approvals |
+| `clarify` / `refuse` | deterministic messages | — |
+| `respond` | status: answered, insufficient_evidence, clarification, pending_approval, refused, error | reports the gateway's decision verbatim |
+
+Routes: KNOWLEDGE, DATA, TOOL, CLARIFICATION, REFUSAL. Policy: one capability per request
+(mixed → CLARIFICATION); missing identifiers → CLARIFICATION; PII, out-of-scope, SQL text,
+"approve/execute" requests, other-hotel requests and unsupported actions → REFUSAL.
+
+LLM: `LLMClient.complete_json(system, user, json_schema) -> str`. Phase 5 uses
+`DeterministicRouterLLM` (rules; reuses the Phase 3 rule generator to recognise data
+questions). No local LLM (ADR-0023: 0.45–0.60 GB free RAM measured vs ≥ 398 MB smallest
+instruct model plus runtime). LangSmith tracing forced off at import.
+
+Session binding: `agent_session(resources, staff_code)` loads the principal and builds an
+MCP session to a `hotel-mcp` server for that principal (in-memory or real stdio
+subprocess). The model cannot change staff, role or hotel.
+
+Audit: `hotel_agent.agent.audit` event `agent.request` (request hash, staff, role, model,
+route, reason, tool, masked arguments, gateway authorization code, approval id/status,
+final status/code, latency) plus a per-node `trace` in the response; gateway and SQL audit
+events remain as in Phases 3-4.
+
+Evaluation (`hotel-agent eval`): 93 cases (17 categories incl. 10 hostile-model scripts) —
+first run 87/92 passed (routing 0.963), after fixing five routing rules 92/92 (routing,
+tool selection, refusal correctness, clarification precision 1.00). Held-out 24 cases
+written afterwards and run once: 21/24 (routing 0.875, tool selection 0.857). Unauthorized
+-action prevention (database snapshot unchanged per case) **1.00 on all sets**.
+
+Measured (dev DB, real embedding model, in-memory MCP): imports 3.1 s; resources + MCP
+session 0.18 s; first knowledge query 1.9 s (model load); warm p50 — knowledge 239 ms,
+data 27 ms, tool 24–26 ms, mutating→pending 42 ms, clarification/refusal ~3 ms; peak RSS
+327 MB; stdio MCP session + one call ~2.3 s. LangGraph added 14 MB to the venv.
+
 ## 3. Known limitations (by design for Phase 1)
 
 - Single property; tables carry `hotel_id`, so multi-property is possible later (untested).
@@ -333,6 +397,19 @@ MCP in-memory round trip 23.5 ms; `hotel-mcp` process ~96 MB RSS; benchmark proc
 - No authentication yet (local-only, bound to 127.0.0.1). Planned for Phase 8.
 - Read-only role can currently read all tables, including guest contact columns
   (synthetic). Narrowing is a Phase 3 deliverable.
+
+### Phase 5 limitations
+
+- The router is a deterministic rule set, not a language model: it handles the phrasings
+  its rules cover (held-out routing accuracy 0.875); a real LLM needs owner approval and
+  more free memory.
+- One capability per request; multi-step plans are not supported (mixed → clarification).
+- No authentication: the agent session's staff code is asserted by its launcher; no HTTP
+  endpoint for the agent.
+- Text-to-SQL analytics views are not hotel-scoped (single-property design from Phase 3);
+  the router refuses explicit other-hotel requests, but multi-property analytics needs a
+  scoped design.
+- LangGraph checkpointing/`interrupt()` is not used; approvals are resolved out of band.
 
 ### Phase 4 limitations
 

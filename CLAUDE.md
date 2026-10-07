@@ -55,7 +55,10 @@ Phase 3 additions: sqlglot (SQL parsing/validation) · `analytics` views · `hot
 Phase 4 additions: official MCP Python SDK (`mcp`, stdio only) · `hotel_ops` role ·
 pytest-cov (dev).
 
-**Current project state: Phases 1–4 are complete (verified 2026-10-07).**
+Phase 5 additions: LangGraph (LangSmith client present but tracing forced off; owner
+approved) · deterministic router model (no LLM).
+
+**Current project state: Phases 1–5 are complete (verified 2026-10-07).**
 
 Implemented and tested:
 - PostgreSQL 16 + pgvector (local Docker, bound to 127.0.0.1)
@@ -83,12 +86,17 @@ Implemented and tested:
   hotel scoping, masked audit, human approval workflow (four-eyes, authority, expiry,
   exactly once), POL-CANCEL-001 refund engine, `hotel-mcp` stdio server, `hotel-ops` CLI,
   adversarial tests. Simulated operations; no authentication (not production-ready).
+- Phase 5: `hotel_agent/agent/` LangGraph graph (route → validate → knowledge | data |
+  tool | clarify | refuse → respond) reusing ExtractiveAnswerer, SqlPipeline and MCP →
+  ToolGateway; provider-neutral `LLMClient`, `RouteDecision` schema, deterministic router
+  and hostile `ScriptedLLM`; `hotel-agent` CLI; 93-case + 24-case held-out evaluation;
+  unauthorized-action prevention 100%. No local LLM (insufficient free RAM).
 
 ## 5. Planned AI architecture
 
-Future phases may introduce: local LLM (incl. LLM-generated RAG answers and an LLM SQL
-generator), LangGraph agent using the MCP tools, approval UI/endpoints, authentication,
-observability. (MCP tools and the human approval workflow exist as of Phase 4.) (The Text-to-SQL safety
+Future phases may introduce: a real (local) LLM behind `LLMClient` (router, RAG answer
+phrasing, SQL generation) after owner approval, approval UI/endpoints, authentication,
+observability. (Agent orchestration exists as of Phase 5 with a deterministic router.) (The Text-to-SQL safety
 pipeline exists; only a deterministic fake generator is implemented.) (Local embeddings, extractive RAG and
 retrieval evaluation are implemented as of Phase 2.)
 
@@ -196,6 +204,8 @@ uv run hotel-sql ask "question"      # read-only operational answer + executed S
 uv run hotel-sql eval --output sql_eval.json
 uv run hotel-mcp --staff-code S-FD-01 # MCP stdio server (logs to stderr)
 uv run hotel-ops approvals list --as S-HS-01
+uv run hotel-agent ask "question" --as S-FD-01   # single agent entry point
+uv run hotel-agent eval --output agent_eval.json
 uv run pytest                        # needs Postgres; `model` tests need the model
 uv run pytest --cov=hotel_agent      # coverage
 uv run ruff format --check . && uv run ruff check . && uv run mypy
@@ -229,6 +239,14 @@ uv run ruff format --check . && uv run ruff check . && uv run mypy
   scoping, masked audit fields in `ops/audit.py`, adversarial tests; grants for
   `hotel_ops` via migration.
 - Ops tests run in an isolated DB (`conftest.ops_db`) because they execute mutations.
+- The LLM is an orchestrator, never the security boundary: agent graph modules must not
+  import DB/SQL-execution/gateway/approval code (static test); the `RouteDecision` schema
+  must never gain authorization, approval, SQL or identity fields; tool arguments go to
+  the ToolGateway unchanged; never add an approve/execute path reachable from the agent.
+- `hotel_agent.agent` import forces LangSmith tracing off — keep it that way (₹0).
+- `eval/agent_cases_holdout.json` is a held-out set: report its results, do not tune on it.
+- `hotel_ops` has a 5-connection limit: share engines (`agent_resources`) across agent
+  sessions instead of creating engines per session.
 - Writing regexes through bash heredocs/`python -c` has produced invisible control chars
   (`\b` became a backspace). Prefer the Edit tool or a script file; the hygiene test
   `tests/test_repo_hygiene.py` catches this.

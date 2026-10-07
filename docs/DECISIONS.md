@@ -698,6 +698,10 @@ Ollama. Sub-1B models are also weak at reliable structured tool-argument extract
 ### Consequences
 Routing quality reflects the deterministic rules, not a language model. The evaluation
 set is reusable unchanged for a future model.
+- Measured (2026-10-07): agent process peak 327 MB with the embedding model loaded; adding
+  even the smallest instruct model would exceed the free memory observed. Evaluation:
+  92/92 on the tuned set, 21/24 on a held-out set run once; unauthorized-action prevention
+  100% on both.
 
 ---
 

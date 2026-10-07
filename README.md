@@ -4,10 +4,11 @@ An AI copilot for hotel teams: grounded answers from SOPs and policies (RAG),
 controlled questions over operational data (Text-to-SQL), and safe hotel
 operations through tools with human approval.
 
-**Status: Phase 4 complete (grounded knowledge retrieval with cited extractive answers;
-controlled read-only Text-to-SQL; an MCP tool server for simulated hotel operations with
-human approval for every mutating action).** No LLM is used, and staff identity is not
-authenticated yet. See [docs/ROADMAP.md](docs/ROADMAP.md).
+**Status: Phase 5 complete (a LangGraph agent routes staff requests to grounded
+knowledge retrieval, controlled read-only Text-to-SQL, or MCP tools for simulated hotel
+operations with human approval for every mutating action).** Routing uses a deterministic
+rule-based model — no LLM — and staff identity is not authenticated yet. Not
+production-ready. See [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ## Project documentation
 
@@ -88,6 +89,21 @@ Generated SQL is validated by an allowlist guard and executed as `hotel_sql`, a 
 can read only curated `analytics` views (no guest identities) and can never write. The
 response contains the answer and, separately, the exact SQL that was executed.
 
+### Agent (Phase 5): one entry point for all requests
+
+```bash
+uv run hotel-agent ask "What is the cancellation policy for villas?" --as S-FD-01
+uv run hotel-agent ask "How many rooms are occupied tonight?" --as S-FD-01
+uv run hotel-agent ask "Create a deep clean task for room 219" --as S-FD-01   # -> pending approval
+uv run hotel-agent ask "What is the status of room 101?" --as S-FD-01 --mcp stdio
+uv run hotel-agent eval --output agent_eval.json
+```
+
+The agent only routes. Knowledge, data and tool requests are answered by the existing
+pipelines; tools are called through MCP and the ToolGateway decides authorization. A
+mutating request always ends as `pending_approval` until a human approves it with
+`hotel-ops`.
+
 ### Hotel operations tools over MCP (Phase 4, simulated)
 
 ```bash
@@ -138,6 +154,7 @@ src/hotel_agent/
   knowledge/           knowledge base: loader, chunker, embeddings, retrieval, answers, eval
   sql/                 controlled Text-to-SQL: guard, executor, generators, pipeline, eval
   ops/                 tool gateway, approvals, refund engine, MCP server, hotel-ops CLI
+  agent/               LangGraph orchestration, router, LLM interface, evaluation
 data/knowledge_base/   synthetic hotel documents (Markdown + TOML front matter)
 eval/                  evaluation questions and results
 migrations/            Alembic migrations
