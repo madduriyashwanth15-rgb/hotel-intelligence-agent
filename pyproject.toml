@@ -21,6 +21,8 @@ dependencies = [
 hotel-seed = "hotel_agent.synthetic.seed:main"
 hotel-kb = "hotel_agent.knowledge.cli:main"
 hotel-sql = "hotel_agent.sql.cli:main"
+hotel-mcp = "hotel_agent.ops.mcp_server:main"
+hotel-ops = "hotel_agent.ops.cli:main"
 
 [build-system]
 requires = ["uv_build>=0.11,<0.12"]

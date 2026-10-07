@@ -7,7 +7,7 @@ import logging
 import sys
 from contextvars import ContextVar
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, Literal
 
 request_id_var: ContextVar[str | None] = ContextVar("request_id", default=None)
 
@@ -39,17 +39,25 @@ class JsonFormatter(logging.Formatter):
         return json.dumps(payload, default=str)
 
 
-class _CurrentStdoutHandler(logging.StreamHandler):  # type: ignore[type-arg]
-    """Writes to whatever `sys.stdout` is at emit time (robust if stdout is swapped)."""
+class _CurrentStreamHandler(logging.StreamHandler):  # type: ignore[type-arg]
+    """Writes to whatever sys.stdout / sys.stderr is at emit time (robust if swapped)."""
+
+    def __init__(self, target: Literal["stdout", "stderr"]) -> None:
+        super().__init__(getattr(sys, target))
+        self._target = target
 
     def emit(self, record: logging.LogRecord) -> None:
-        self.stream = sys.stdout
+        self.stream = getattr(sys, self._target)
         super().emit(record)
 
 
-def configure_logging(level: str = "INFO") -> None:
-    """Install the JSON formatter on the root logger (idempotent)."""
-    handler = _CurrentStdoutHandler(sys.stdout)
+def configure_logging(level: str = "INFO", stream: Literal["stdout", "stderr"] = "stdout") -> None:
+    """Install the JSON formatter on the root logger (idempotent).
+
+    Use stream="stderr" for stdio protocol servers (MCP), where stdout carries protocol
+    messages and must never receive log lines.
+    """
+    handler = _CurrentStreamHandler(stream)
     handler.setFormatter(JsonFormatter())
     root = logging.getLogger()
     root.handlers.clear()
