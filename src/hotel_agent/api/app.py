@@ -13,6 +13,8 @@ from fastapi import FastAPI
 from sqlalchemy import Engine
 
 from hotel_agent import __version__
+from hotel_agent.api.data import PipelineHolder
+from hotel_agent.api.data import router as data_router
 from hotel_agent.api.health import router as health_router
 from hotel_agent.api.knowledge import router as knowledge_router
 from hotel_agent.api.middleware import RequestContextMiddleware
@@ -22,6 +24,11 @@ from hotel_agent.knowledge.answer import EvidenceThresholds, ExtractiveAnswerer
 from hotel_agent.knowledge.embeddings import FastEmbedEmbedder
 from hotel_agent.knowledge.retrieval import Retriever
 from hotel_agent.logging_config import configure_logging
+from hotel_agent.sql.context import load_context
+from hotel_agent.sql.executor import SqlExecutor
+from hotel_agent.sql.generators import RuleBasedFakeGenerator
+from hotel_agent.sql.guard import SqlGuard
+from hotel_agent.sql.pipeline import SqlPipeline
 
 # Fail fast instead of hanging when the database is unreachable.
 CONNECT_TIMEOUT_SECONDS = 3
@@ -45,10 +52,28 @@ def _build_answerer(settings: Settings) -> tuple[ExtractiveAnswerer | None, Engi
     return ExtractiveAnswerer(Retriever(readonly, embedder), embedder, thresholds), readonly
 
 
+def _sql_pipeline_factory(settings: Settings) -> tuple[PipelineHolder, Engine | None]:
+    """Text-to-SQL runs as hotel_sql (analytics views only); disabled without credentials."""
+    if settings.sql_db_password is None:
+        return PipelineHolder(None), None
+    sql_engine = make_engine(
+        settings.sql_database_url(),
+        connect_args={"connect_timeout": CONNECT_TIMEOUT_SECONDS},
+    )
+
+    def build() -> SqlPipeline:
+        return SqlPipeline(
+            RuleBasedFakeGenerator(), SqlGuard(), SqlExecutor(sql_engine), load_context(sql_engine)
+        )
+
+    return PipelineHolder(build), sql_engine
+
+
 def create_app(
     settings: Settings | None = None,
     engine: Engine | None = None,
     answerer: ExtractiveAnswerer | None = None,
+    sql_pipeline: SqlPipeline | None = None,
 ) -> FastAPI:
     settings = settings or get_settings()
     configure_logging(settings.log_level)
@@ -65,6 +90,11 @@ def create_app(
             app.state.answerer = answerer
         else:
             app.state.answerer, readonly = _build_answerer(settings)
+        sql_engine: Engine | None = None
+        if sql_pipeline is not None:
+            app.state.sql_pipeline = PipelineHolder(lambda: sql_pipeline)
+        else:
+            app.state.sql_pipeline, sql_engine = _sql_pipeline_factory(settings)
         try:
             yield
         finally:
@@ -72,9 +102,12 @@ def create_app(
                 app.state.engine.dispose()
             if readonly is not None:
                 readonly.dispose()
+            if sql_engine is not None:
+                sql_engine.dispose()
 
     app = FastAPI(title="Hotel Intelligence Agent", version=__version__, lifespan=lifespan)
     app.add_middleware(RequestContextMiddleware)
     app.include_router(health_router)
     app.include_router(knowledge_router)
+    app.include_router(data_router)
     return app
