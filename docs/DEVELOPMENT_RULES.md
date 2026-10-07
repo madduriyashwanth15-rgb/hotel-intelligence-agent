@@ -130,6 +130,17 @@ A change is not "done" until all of the above pass.
   1.00; report held-out results without tuning on them.
 - Add hostile-model (`ScriptedLLM`) tests for any new route or tool path.
 
+### HTTP agent, Docker and CI (Phase 7)
+
+- `api/agent.py` may only call `HotelAgent`; never import DB, SQL or ops code there.
+- Never let a request choose staff, role or hotel; never add an approval endpoint before
+  authentication exists.
+- Keep the demo database unpublished and the API bound to 127.0.0.1.
+- CI must stay green and free: no secrets, LLM, paid service or cloud; pin actions to SHAs.
+  Gate only on safety invariants, never on accuracy.
+- Report proportions with their Wilson interval; label Text-to-SQL accuracy as the rule
+  generator's.
+
 ### Model routers (Phase 6)
 
 - Tests never call a real LLM; the live Ollama test is opt-in (`HIA_OLLAMA_LIVE=1`).

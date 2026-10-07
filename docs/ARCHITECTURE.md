@@ -51,7 +51,7 @@ Principles (status in brackets):
   human channel [TESTED, §2.11]; LangGraph `interrupt()` integration remains PLANNED.
 - **Tests never call an LLM**; real-model evaluation runs as a separate suite.
 
-## 2. Current architecture (Phases 1–6) — TESTED
+## 2. Current architecture (Phases 1–7) — TESTED
 
 ```
 uvicorn ─► FastAPI app (create_app factory)
@@ -97,6 +97,8 @@ alembic ─► migrations/ (0001 core, 0002 read-only, 0003 KB, 0004 analytics, 
 | `src/hotel_agent/knowledge/evaluation.py` | Retrieval metrics, threshold calibration, end-to-end scoring | TESTED |
 | `src/hotel_agent/knowledge/cli.py` | `hotel-kb` command line | TESTED |
 | `src/hotel_agent/api/data.py` | `POST /data/ask` | TESTED |
+| `src/hotel_agent/api/agent.py` | `POST /agent/ask` over `HotelAgent` (no auth; principal from config) | TESTED |
+| `src/hotel_agent/stats.py` | Wilson 95% confidence intervals for evaluation reports | TESTED |
 | `src/hotel_agent/sql/guard.py` | SqlGuard: allowlist validation of generated SQL | TESTED |
 | `src/hotel_agent/sql/executor.py` | Read-only execution as `hotel_sql`, timeout, cost ceiling, row cap | TESTED |
 | `src/hotel_agent/sql/context.py` | SchemaContext: views, glossary, allowed values | TESTED |
@@ -297,7 +299,8 @@ Pipeline (ADR-0015/0016):
 Evaluation (`hotel-sql eval`, `eval/sql_cases.json`, results `eval/results/sql_eval.json`):
 90 cases in 11 categories; answered cases compared to independent reference SQL on the raw
 tables run as the admin role. Results: safety block rate 34/34 (100%), execution accuracy
-34/34, false-refusal rate 0, refusal accuracy 51/51, wrong-but-safe detection 4/4. Guard
+34/34 (of the **deterministic rule generator**, whose rules and cases were written together
+— not evidence of natural-language understanding), false-refusal rate 0, refusal accuracy 51/51, wrong-but-safe detection 4/4. Guard
 bypass corpus: 108 unsafe statements blocked (100%), 17 safe ones allowed.
 
 Measured: answered questions ~30–60 ms end to end (live API), refusals < 3 ms; evaluation
@@ -342,7 +345,7 @@ are never logged.
 Measured (dev DB, this laptop): read tools p50 17–24 ms (p95 ≤ 33 ms); rejected calls
 < 9 ms; creating an approval request ~31 ms; approve + execute 31–36 ms (p95 ≤ 55 ms);
 MCP in-memory round trip 23.5 ms; `hotel-mcp` process ~96 MB RSS; benchmark process peak
-99 MB. `mcp` + `pytest-cov` added 32 MB to the venv. Coverage: 91% overall, 94% for `ops`.
+99 MB. `mcp` + `pytest-cov` added 32 MB to the venv. Coverage: 91% overall, 94% for `ops` (Phase 4; re-measured in Phase 7: 90% overall, see §2.14).
 
 ### 2.12 Agent orchestration (Phase 5)
 
@@ -422,6 +425,36 @@ Ollama feasibility (measured, not a benchmark): llama-server peak ~554 MB + Olla
 16–18 tokens/s; warm routing 1.3–5.2 s, cold ~7.8 s; ~1,300 prompt tokens/request; free
 RAM 0.34–0.88 GB depending on open applications.
 
+### 2.14 Verifiability: HTTP agent, Docker demo, CI, intervals (Phase 7)
+
+```
+docker compose -f docker-compose.demo.yml up --build
+  postgres (pgvector 0.8.1-pg16, NOT published)  ◄── app (non-root, read-only root FS,
+                                                      no capabilities; 127.0.0.1:8000)
+  app entrypoint: alembic upgrade head → hotel-seed --if-empty → hotel-kb ingest → uvicorn
+  POST /agent/ask ─► AgentHolder (lock) ─► HotelAgent.ask ─► same graph / MCP / gateway
+```
+
+- `POST /agent/ask` (ADR-0027): body `{"question"}` only (`extra="forbid"`); the agent
+  session is opened once in the FastAPI lifespan for `AGENT_STAFF_CODE` (server config);
+  unset/unknown → 503. The router module imports no DB/SQL/ops code (static test). No
+  approval endpoint. **No authentication.**
+- Image: multi-stage, `uv sync --frozen --no-dev`, embedding model downloaded at build and
+  SHA-256-verified, no secrets, no LLM; 811 MB.
+- CI (`.github/workflows/ci.yml`): job `test` (lint, types, migrate + `alembic check`,
+  seed, ingest, pytest with coverage, evaluation safety gates via
+  `scripts/check_eval_gates.py`) and job `docker-demo` (build, start, smoke-test, DB not
+  published). Actions pinned to commit SHAs; `contents: read`.
+- Evaluation reports carry `confidence_intervals` (Wilson 95%, ADR-0028).
+
+Measured (2026-10-07): image build 109 s cold; demo start on an empty volume 31 s
+(seed 3,798 reservations, ingest 15 documents / 96 chunks in ~10 s); restart 15 s
+(idempotent). Memory: app 118 MB after start, 314 MB after the first knowledge question
+(embedding model loaded); demo Postgres ~50–55 MB. Live latency through the API: knowledge
+~1.5–2.1 s on the first question (model load), data ~65 ms, read-only tool ~40 ms,
+mutating → pending ~60–180 ms, refusals < 10 ms. Coverage: 90% of 4,322 statements
+(api 96%, ops 94%, agent 88%, sql 87%, knowledge 82%); 720 tests + 1 opt-in live test.
+
 ## 3. Known limitations (by design for Phase 1)
 
 - Single property; tables carry `hotel_id`, so multi-property is possible later (untested).
@@ -430,6 +463,17 @@ RAM 0.34–0.88 GB depending on open applications.
 - No authentication yet (local-only, bound to 127.0.0.1). Planned for Phase 8.
 - Read-only role can currently read all tables, including guest contact columns
   (synthetic). Narrowing is a Phase 3 deliverable.
+
+### Phase 7 limitations
+
+- **No authentication**: `/agent/ask` acts as the one configured staff member for anyone
+  who can reach it (bound to 127.0.0.1). Approvals stay CLI-only for that reason.
+- One shared MCP session per API process, requests serialized — a local demo, not a
+  throughput design.
+- The CI workflow has been executed locally step by step but **not yet on GitHub** (the
+  repository has no remote).
+- Confidence intervals quantify sampling noise only; all sets were written by the same
+  author as the rules, which intervals cannot correct.
 
 ### Phase 6 limitations
 

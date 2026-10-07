@@ -31,6 +31,8 @@ are appended at the end; superseded decisions are marked, never deleted.
 | [0024](#adr-0024--agent-security-invariants-and-routing-policy) | Agent security invariants and routing policy | Accepted | 2026-10-07 |
 | [0025](#adr-0025--local-llm-router-via-ollama-experimental-not-selected) | Local LLM router via Ollama: EXPERIMENTAL, not selected | Accepted | 2026-10-07 |
 | [0026](#adr-0026--agent-evaluation-methodology-for-model-routers) | Agent evaluation methodology for model routers | Accepted | 2026-10-07 |
+| [0027](#adr-0027--http-agent-endpoint-docker-demo-and-ci) | HTTP agent endpoint, Docker demo and CI | Accepted | 2026-10-07 |
+| [0028](#adr-0028--confidence-intervals-and-claims-policy) | Confidence intervals and claims policy | Accepted | 2026-10-07 |
 
 Template for new entries: **Context → Decision → Consequences**, with Status and Date.
 
@@ -836,3 +838,61 @@ Phase 6 deterministic results (reproduced exactly on re-run): dev 92/92; held-ou
 unauthorized-action prevention 1.00, prompt leaks 0, injection success 0/30. The
 deterministic router generalizes poorly to unseen phrasings (mostly misrouting to
 KNOWLEDGE); its misses are wrong but safe.
+
+---
+
+## ADR-0027 — HTTP agent endpoint, Docker demo and CI
+
+- Status: Accepted
+- Date: 2026-10-07
+
+### Context
+The Phase 6 audit found the system hard to verify: the agent was CLI-only, nothing ran
+with one command, and no CI existed. Authentication is explicitly out of scope.
+
+### Decision
+- `POST /agent/ask` calls the existing `HotelAgent` (no duplicated logic). The agent
+  session is opened once in the FastAPI lifespan for **`AGENT_STAFF_CODE`, set by whoever
+  runs the server**; the request body accepts only `question` (`extra="forbid"`), so a
+  client cannot choose staff, role or hotel. Unset or unknown principal → 503. Requests are
+  serialized through one MCP session. The router module imports no DB, SQL or ops code
+  (static test). **No approval endpoint** while there is no authentication.
+- Docker: a multi-stage image (locked deps, no dev tools, non-root, model SHA-256-verified
+  at build, no secrets, no LLM) and a separate `docker-compose.demo.yml` project with its
+  own volume. The demo database is **not published**; the API binds to 127.0.0.1; the app
+  container runs with a read-only root FS and no capabilities. Demo credentials are
+  defaults for a database reachable only inside the compose network (overridable). The
+  entrypoint is idempotent (`hotel-seed --if-empty`, ingestion is idempotent).
+- CI: GitHub Actions on GitHub-hosted runners (free for public repos; private repos use the
+  free monthly minutes). Actions pinned to commit SHAs, `contents: read`, throwaway
+  service-container credentials, no secrets/LLM/cloud. Gates only on safety invariants;
+  accuracy is reported, never gated, so nothing is tuned against frozen sets.
+
+### Consequences
+Anyone with Docker can run the full agent locally; the security boundary is unchanged.
+Identity is still asserted by configuration, not authenticated — acceptable only on a
+local machine. The workflow is verified locally; a GitHub run needs the owner to add a
+remote and push.
+
+---
+
+## ADR-0028 — Confidence intervals and claims policy
+
+- Status: Accepted
+- Date: 2026-10-07
+
+### Decision
+- Every proportion in evaluation reports gets a **95% Wilson score interval** (k, n, rate,
+  interval) in a `confidence_intervals` block; existing metric keys are unchanged. Wilson
+  was chosen over the normal approximation because the sets are small (2–92 cases per
+  metric) and many rates are exactly 0 or 1, where the normal interval collapses.
+- Intervals describe sampling uncertainty only. No significance tests are claimed; the
+  shared authorship of rules and test sets is a limitation intervals cannot fix.
+- Claims policy: the project is described as a "security-first hotel operations agent";
+  no generative model is claimed. Text-to-SQL "execution accuracy" is always labelled as
+  measuring the deterministic rule generator. Unfavourable results (held-out v2,
+  adversarial routing, KB refusal precision) are reported alongside favourable ones.
+
+### Consequences
+Headline safety claims become bounded statements, e.g. injection success 0/30 means a
+95% upper bound of ~11%, and SQL safety 34/34 means a lower bound of ~90%.

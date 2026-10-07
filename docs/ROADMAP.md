@@ -12,7 +12,7 @@ IMPLEMENTED · TESTED · PLANNED · EXPERIMENTAL ([CLAUDE.md §13](../CLAUDE.md#
 | 4 | MCP tool server | ✅ Complete — TESTED (2026-10-07; simulated, no auth) |
 | 5 | LangGraph orchestration | ✅ Complete — TESTED (2026-10-07; deterministic router) |
 | 6 | Real LLM integration and agent evaluation | ✅ Complete — TESTED (2026-10-07; deterministic default, local LLM EXPERIMENTAL, not selected) |
-| 7 | Evaluation and observability hardening | PLANNED — not started |
+| 7 | Make it verifiable (CI, Docker demo, HTTP agent, honest claims, intervals) | ✅ Complete — TESTED (2026-10-07; CI not yet run on GitHub) |
 | 8 | Production hardening (auth/RBAC, rate limits) | PLANNED — not started |
 
 Evaluation and tests grow inside every phase, not only in Phase 7.
@@ -181,11 +181,31 @@ Definition of Done — verified 2026-10-07:
 - [ ] **Not achieved:** a valid full Ollama evaluation — the machine ran out of memory and
       the run was stopped; per owner decision it was not retried (no benchmark claimed)
 
-## Phase 7 — Evaluation and observability hardening (PLANNED)
+## Phase 7 — Make it verifiable ✅ (2026-10-07)
 
-- [ ] End-to-end eval harness with regression thresholds
-- [ ] Local tracing (no hosted service without approval)
-- [ ] CI (requires owner approval — GitHub Actions minutes may be limited/billable)
+Decisions: ADR-0027 (HTTP agent endpoint, Docker demo, CI), ADR-0028 (confidence
+intervals and claims policy). Scope was deliberately limited by the owner: no external LLM
+evaluation, authentication, UI, cloud, larger model or multi-step planning. Local tracing
+moved to the backlog.
+
+Definition of Done — verified 2026-10-07:
+
+- [x] `POST /agent/ask` over the existing `HotelAgent`; principal from `AGENT_STAFF_CODE`
+      (server config); request cannot set staff/role/hotel; no approval endpoint; tests
+      for knowledge, data, read-only tool, mutating → pending, invalid, injection, unknown
+      tool, cross-hotel
+- [x] Dockerfile + `docker-compose.demo.yml`: one command from a fresh clone; DB not
+      published; API on 127.0.0.1; idempotent migrate → seed → ingest → serve; verified
+      live including the human approval step and a restart
+- [x] GitHub Actions workflow (tests, lint, types, migrations, eval safety gates, Docker
+      smoke); every step executed locally on a fresh database; gate script rejects
+      tampered reports
+- [x] Honest-claims pass (README, PRD, ARCHITECTURE, CLAUDE.md, pyproject); coverage
+      re-measured (90%)
+- [x] Wilson 95% intervals in KB, SQL and agent reports; regenerated results identical in
+      every non-timing value
+- [x] Full regression: 720 tests, ruff, mypy --strict; Phase 2/3/5/6 evaluations unchanged
+- [ ] **Not verified:** a CI run on GitHub (no remote configured; pushing is the owner's call)
 
 ## Phase 8 — Production hardening (PLANNED)
 
@@ -216,6 +236,7 @@ Record future ideas here instead of implementing them early.
 - Tools: authentication for MCP/CLI principals (Phase 8); approval UI or HTTP endpoints;
   persistent per-principal rate limits; tamper-evident audit store.
 - Tools: unit tests for the `hotel-kb` / `hotel-sql` CLIs (currently verified live only).
+- Observability: local tracing/metrics (moved from the original Phase 7 plan).
 - Agent: evaluate a stronger model behind `LLMClient` only with owner approval and enough
   free memory (or a verified ₹0 option); run the frozen held-out v2 + adversarial sets once
   per configuration. Improve the deterministic router's generalization (held-out v2 0.72,

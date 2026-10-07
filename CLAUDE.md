@@ -8,8 +8,8 @@ Canonical docs: [PRD](docs/PRD.md) · [Architecture](docs/ARCHITECTURE.md) ·
 ## 1. Project identity
 
 - **Project:** Hotel Intelligence Agent
-- **Purpose:** Build an AI copilot for hotel teams that can eventually answer questions
-  about hotel knowledge and operational data and safely perform approved hotel operations.
+- **Purpose:** Security-first hotel operations agent combining grounded document retrieval, controlled Text-to-SQL analytics, MCP tools and human approval. (A generative AI assistant is a long-term goal, not the current
+  state: no generative model runs in any request path.)
 - **Initial hotel:** Grand Hills Resort (fictional)
 - **Initial environment:** Synthetic data only.
 
@@ -65,7 +65,11 @@ experiment and were deleted afterwards; no Ollama runtime/model files are requir
 stored anywhere, and Ollama is not a project dependency. **Default router:
 deterministic. No production LLM selected.**
 
-**Current project state: Phases 1–6 are complete (verified 2026-10-07).**
+Phase 7 additions: `POST /agent/ask` (principal from `AGENT_STAFF_CODE`, no auth) ·
+Dockerfile + `docker-compose.demo.yml` · GitHub Actions CI (`.github/workflows/ci.yml`) ·
+Wilson confidence intervals (`hotel_agent/stats.py`).
+
+**Current project state: Phases 1–7 are complete (verified 2026-10-07).**
 
 Implemented and tested:
 - PostgreSQL 16 + pgvector (local Docker, bound to 127.0.0.1)
@@ -104,6 +108,10 @@ Implemented and tested:
   stopped for low memory). Output hardening, fallback, prompt minimisation, clarification
   leak filter. Deterministic router: dev 92/92, held-out 21/24 and 22/36, adversarial
   18/30; unauthorized-action prevention 1.00, prompt leaks 0, injection success 0/30.
+- Phase 7: `POST /agent/ask` (tests incl. injection, unknown tool, cross-hotel; no
+  approval endpoint); one-command Docker demo (verified live incl. human approval); CI
+  workflow (verified locally step by step, not yet run on GitHub — no remote); honest
+  claims; coverage 90%; Wilson 95% intervals in all evaluation reports.
 
 ## 5. Planned AI architecture
 
@@ -221,6 +229,9 @@ uv run hotel-agent ask "question" --as S-FD-01   # single agent entry point
 uv run hotel-agent eval --output agent_eval.json
 uv run hotel-agent eval --cases holdout_v2|adversarial --output x.json  # frozen: never tune
 # EXPERIMENTAL, owner-approved local model only: --llm ollama [--no-fallback]
+docker compose -f docker-compose.demo.yml up --build   # one-command demo, 127.0.0.1:8000
+AGENT_STAFF_CODE=S-FD-01 uv run uvicorn ...           # enables POST /agent/ask locally
+uv run python scripts/check_eval_gates.py agent eval/results/<report>.json
 uv run pytest                        # needs Postgres; `model` tests need the model
 uv run pytest --cov=hotel_agent      # coverage
 uv run ruff format --check . && uv run ruff check . && uv run mypy
@@ -259,6 +270,12 @@ uv run ruff format --check . && uv run ruff check . && uv run mypy
   must never gain authorization, approval, SQL or identity fields; tool arguments go to
   the ToolGateway unchanged; never add an approve/execute path reachable from the agent.
 - `hotel_agent.agent` import forces LangSmith tracing off — keep it that way (₹0).
+- `POST /agent/ask` has NO authentication: the principal comes from `AGENT_STAFF_CODE`
+  (server config). Never accept staff/role/hotel from a request; never add approval
+  endpoints before authentication; keep the API on 127.0.0.1 and the demo DB unpublished.
+- Never call Text-to-SQL "execution accuracy" model accuracy: it measures the rule
+  generator. Report proportions with Wilson intervals (ADR-0028).
+- CI gates are safety-only; do not add accuracy gates (they invite tuning on frozen sets).
 - `eval/agent_cases_holdout.json`, `agent_cases_holdout_v2.json` and
   `agent_cases_adversarial.json` are frozen: report their results, never tune on them.
 - Do not restart Ollama or download/introduce another model without explicit owner

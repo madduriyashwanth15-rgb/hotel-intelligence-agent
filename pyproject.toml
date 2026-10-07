@@ -1,7 +1,7 @@
 [project]
 name = "hotel-intelligence-agent"
 version = "0.1.0"
-description = "AI copilot for hotel teams (Phase 1: foundations and synthetic data)"
+description = "Security-first hotel operations agent combining grounded document retrieval, controlled Text-to-SQL analytics, MCP tools and human approval."
 readme = "README.md"
 requires-python = ">=3.12,<3.13"
 dependencies = [

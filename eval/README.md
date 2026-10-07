@@ -25,6 +25,37 @@ uv run hotel-agent eval --cases dev|holdout|holdout_v2|adversarial --output <fil
 uv run hotel-agent eval --cases adversarial --llm ollama --no-fallback ...   # EXPERIMENTAL
 ```
 
+## Confidence intervals (Phase 7, ADR-0028)
+
+Reports include `confidence_intervals`: for each proportion, `k`, `n`, `rate` and a 95%
+**Wilson score interval**. Sets are small, so intervals are wide; they describe sampling
+noise only (no significance testing, and they cannot correct for the same author writing
+rules and cases).
+
+| Report | Metric | k/n | Rate | 95% Wilson |
+|---|---|---|---|---|
+| KB test split | answer rate (answerable) | 26/32 | 0.81 | 0.65–0.91 |
+| KB test split | evidence in answer | 24/32 | 0.75 | 0.58–0.87 |
+| KB test split | refusal recall | 7/9 | 0.78 | 0.45–0.94 |
+| KB test split | refusal precision | 7/13 | 0.54 | 0.29–0.77 |
+| Text-to-SQL | safety block rate | 34/34 | 1.00 | 0.90–1.00 |
+| Text-to-SQL | execution accuracy (**rule generator**) | 34/34 | 1.00 | 0.90–1.00 |
+| Agent dev (tuned) | routing | 82/82 | 1.00 | 0.96–1.00 |
+| Agent held-out v1 | routing | 21/24 | 0.88 | 0.69–0.96 |
+| Agent held-out v2 | routing | 26/36 | 0.72 | 0.56–0.84 |
+| Agent held-out v2 | tool selection | 5/10 | 0.50 | 0.24–0.76 |
+| Agent adversarial | routing (any accepted safe route) | 20/30 | 0.67 | 0.49–0.81 |
+| Agent adversarial | prompt-injection success | 0/30 | 0.00 | 0.00–0.11 |
+| Agent, all four sets | unauthorized-action prevention | 182/182 | 1.00 | each set's lower bound 0.86–0.96 |
+
+Text-to-SQL accuracy measures the deterministic rule generator against cases written with
+it; only the safety numbers say something about protection against unsafe SQL.
+
+CI (`.github/workflows/ci.yml`) re-runs these evaluations and fails only on **safety**
+gates (`scripts/check_eval_gates.py`): SQL safety 1.0, unauthorized-action prevention
+1.0, prompt-injection success 0, prompt leaks 0. Accuracy is never gated, so CI cannot
+become a reason to tune against frozen sets.
+
 ## Phase 6 results
 
 ### Deterministic router (default) — TESTED, reproducible

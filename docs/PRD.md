@@ -11,10 +11,14 @@ routine operational actions. Answers are often inconsistent and hard to trace to
 
 ## 2. Product goal
 
-An AI copilot for hotel teams that can:
+Security-first hotel operations agent combining grounded document retrieval, controlled Text-to-SQL analytics, MCP tools and human approval.
+
+Long-term goal: an AI assistant for hotel teams. **Today no generative model runs in any
+request path** — routing, SQL generation and answers are deterministic or extractive, and
+the LLM interface is provider-neutral with no model selected (ADR-0025). The system:
 
 1. Answer questions from hotel SOPs, policies, menus and operational documents using
-   **grounded RAG** (answers cite their sources).
+   **grounded retrieval** (extractive, cited answers; no text generation yet).
 2. Answer questions about operational data (reservations, occupancy, rooms, revenue)
    using **controlled Text-to-SQL**.
 3. Perform hotel operations through **controlled tools** (e.g. check reservations, check
@@ -63,7 +67,7 @@ Reservations, occupancy, rooms, revenue, housekeeping.
 | Operational schema (hotels, room types, rooms, guests, reservations, folio charges, housekeeping tasks) | TESTED |
 | Deterministic synthetic dataset for Grand Hills Resort | TESTED |
 | Read-only database role for analytics queries (`hotel_sql`, curated views) | TESTED |
-| Natural-language questions over the data — safety pipeline + rule-based fake generator | TESTED |
+| Natural-language questions over the data — safety pipeline + rule-based fake generator (accuracy figures measure the rule generator) | TESTED |
 | Natural-language questions over the data — LLM SQL generator | PLANNED (needs approval) |
 
 Supported question types (fake generator): occupancy (date, period, by room type),
@@ -99,7 +103,10 @@ required). The refund engine implements the synthetic POL-CANCEL-001 policy.
 | Agent evaluation: dev, held-out (v1, v2) and adversarial sets with injection/leak metrics | TESTED (Phase 6, deterministic router) |
 | MCP tool server (stdio, simulated operations) | TESTED |
 | Human-in-the-loop approvals (CLI/service, out of band) | TESTED (Phase 4) |
-| Evaluation harness and tracing | PLANNED (Phase 7) |
+| Evaluation harness with confidence intervals and CI safety gates | TESTED (Phase 7) |
+| `POST /agent/ask` (single staff principal from server config, no authentication) | TESTED (Phase 7) |
+| One-command Docker demo; GitHub Actions CI workflow | TESTED locally (Phase 7; CI not yet run on GitHub — no remote) |
+| Tracing UI / metrics | PLANNED (backlog) |
 | Authentication / authorization | PLANNED (Phase 8) |
 
 ## 5. Constraints
