@@ -48,6 +48,9 @@ class Settings(BaseSettings):
     embedding_model: str = "BAAI/bge-small-en-v1.5"
     embedding_cache_dir: Path = Path(".models")
     embedding_threads: int = Field(default=2, ge=1, le=8)
+    # "I don't know" thresholds (calibrated on the eval dev split; see eval/results).
+    kb_min_similarity: float = Field(default=0.58, ge=0.0, le=1.0)
+    kb_min_coverage: float = Field(default=0.45, ge=0.0, le=1.0)
 
     def resolve_path(self, path: Path) -> Path:
         return path if path.is_absolute() else PROJECT_ROOT / path

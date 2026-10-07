@@ -61,7 +61,8 @@ class ModelSpec:
     model_file: str
     sha256: str
     dimension: int
-    # BGE's recommended instruction for short queries against passages.
+    # BGE's suggested instruction for short queries against passages. On by default: it
+    # improved end-to-end answers on the eval dev split (see eval/results/kb_eval.json).
     query_instruction: str
 
 

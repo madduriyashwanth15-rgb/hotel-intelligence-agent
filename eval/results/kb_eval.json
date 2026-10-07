@@ -1,0 +1,1042 @@
+{
+  "generated_at": "2026-10-07T07:15:59+00:00",
+  "embedding_model": "BAAI/bge-small-en-v1.5",
+  "eval_set": {
+    "path": "eval/kb_questions.json",
+    "questions": 83,
+    "dev": 42,
+    "test": 41
+  },
+  "retrieval": [
+    {
+      "split": "dev",
+      "query_instruction": true,
+      "mode": "vector",
+      "questions": 32,
+      "doc_recall@1": 0.9375,
+      "doc_recall@3": 0.9688,
+      "doc_recall@5": 0.9688,
+      "mrr@10": 0.9576,
+      "evidence_recall@5": 0.9375,
+      "latency_ms_p50": 21.4,
+      "latency_ms_p95": 27.7
+    },
+    {
+      "split": "test",
+      "query_instruction": true,
+      "mode": "vector",
+      "questions": 32,
+      "doc_recall@1": 0.9688,
+      "doc_recall@3": 0.9688,
+      "doc_recall@5": 0.9688,
+      "mrr@10": 0.974,
+      "evidence_recall@5": 0.9688,
+      "latency_ms_p50": 20.8,
+      "latency_ms_p95": 25.6
+    },
+    {
+      "split": "dev",
+      "query_instruction": true,
+      "mode": "fts",
+      "questions": 32,
+      "doc_recall@1": 0.7812,
+      "doc_recall@3": 0.9688,
+      "doc_recall@5": 0.9688,
+      "mrr@10": 0.8698,
+      "evidence_recall@5": 0.9688,
+      "latency_ms_p50": 8.8,
+      "latency_ms_p95": 12.0
+    },
+    {
+      "split": "test",
+      "query_instruction": true,
+      "mode": "fts",
+      "questions": 32,
+      "doc_recall@1": 0.8125,
+      "doc_recall@3": 0.9062,
+      "doc_recall@5": 0.9375,
+      "mrr@10": 0.8674,
+      "evidence_recall@5": 0.875,
+      "latency_ms_p50": 9.1,
+      "latency_ms_p95": 11.5
+    },
+    {
+      "split": "dev",
+      "query_instruction": true,
+      "mode": "hybrid",
+      "questions": 32,
+      "doc_recall@1": 0.9062,
+      "doc_recall@3": 0.9688,
+      "doc_recall@5": 0.9688,
+      "mrr@10": 0.9375,
+      "evidence_recall@5": 0.9688,
+      "latency_ms_p50": 30.4,
+      "latency_ms_p95": 35.5
+    },
+    {
+      "split": "test",
+      "query_instruction": true,
+      "mode": "hybrid",
+      "questions": 32,
+      "doc_recall@1": 0.9062,
+      "doc_recall@3": 0.9688,
+      "doc_recall@5": 1.0,
+      "mrr@10": 0.9385,
+      "evidence_recall@5": 1.0,
+      "latency_ms_p50": 30.8,
+      "latency_ms_p95": 37.8
+    },
+    {
+      "split": "dev",
+      "query_instruction": false,
+      "mode": "vector",
+      "questions": 32,
+      "doc_recall@1": 0.9062,
+      "doc_recall@3": 0.9688,
+      "doc_recall@5": 0.9688,
+      "mrr@10": 0.942,
+      "evidence_recall@5": 0.9375,
+      "latency_ms_p50": 17.5,
+      "latency_ms_p95": 21.8
+    },
+    {
+      "split": "test",
+      "query_instruction": false,
+      "mode": "vector",
+      "questions": 32,
+      "doc_recall@1": 0.9688,
+      "doc_recall@3": 1.0,
+      "doc_recall@5": 1.0,
+      "mrr@10": 0.9844,
+      "evidence_recall@5": 1.0,
+      "latency_ms_p50": 19.1,
+      "latency_ms_p95": 22.7
+    },
+    {
+      "split": "dev",
+      "query_instruction": false,
+      "mode": "fts",
+      "questions": 32,
+      "doc_recall@1": 0.7812,
+      "doc_recall@3": 0.9688,
+      "doc_recall@5": 0.9688,
+      "mrr@10": 0.8698,
+      "evidence_recall@5": 0.9688,
+      "latency_ms_p50": 8.3,
+      "latency_ms_p95": 10.3
+    },
+    {
+      "split": "test",
+      "query_instruction": false,
+      "mode": "fts",
+      "questions": 32,
+      "doc_recall@1": 0.8125,
+      "doc_recall@3": 0.9062,
+      "doc_recall@5": 0.9375,
+      "mrr@10": 0.8674,
+      "evidence_recall@5": 0.875,
+      "latency_ms_p50": 8.5,
+      "latency_ms_p95": 11.7
+    },
+    {
+      "split": "dev",
+      "query_instruction": false,
+      "mode": "hybrid",
+      "questions": 32,
+      "doc_recall@1": 0.9062,
+      "doc_recall@3": 0.9688,
+      "doc_recall@5": 1.0,
+      "mrr@10": 0.9385,
+      "evidence_recall@5": 0.9688,
+      "latency_ms_p50": 26.4,
+      "latency_ms_p95": 31.5
+    },
+    {
+      "split": "test",
+      "query_instruction": false,
+      "mode": "hybrid",
+      "questions": 32,
+      "doc_recall@1": 0.9375,
+      "doc_recall@3": 1.0,
+      "doc_recall@5": 1.0,
+      "mrr@10": 0.9583,
+      "evidence_recall@5": 1.0,
+      "latency_ms_p50": 27.8,
+      "latency_ms_p95": 33.7
+    }
+  ],
+  "calibration": {
+    "split": "dev",
+    "thresholds": {
+      "min_similarity": 0.58,
+      "min_coverage": 0.45
+    },
+    "answer_rate_on_answerable": 0.875,
+    "refusal_rate_on_unanswerable": 1.0,
+    "balanced_accuracy": 0.9375
+  },
+  "end_to_end_dev": {
+    "questions": 42,
+    "answerable": 32,
+    "unanswerable": 10,
+    "answer_rate_on_answerable": 0.875,
+    "evidence_in_answer_rate": 0.8125,
+    "cited_expected_doc_rate": 0.8438,
+    "refusal_recall": 1.0,
+    "refusal_precision": 0.7143,
+    "false_answers_on_unanswerable": [],
+    "latency_ms_p50": 197.2,
+    "latency_ms_p95": 392.9,
+    "rows": [
+      {
+        "id": "A01",
+        "answerable": true,
+        "status": "answered",
+        "evidence_in_answer": true,
+        "cited_expected_doc": true,
+        "top_similarity": 0.753,
+        "coverage": 1.0,
+        "answer": "Guests may cancel free of charge until 48 hours before the scheduled arrival time of 14:00 on the arrival date. [POL-CANCEL-001#1] Bookings made under a corporate agreement may be cancelled free of charge until 24 hours before arrival. [POL-CANCEL-001#4]"
+      },
+      {
+        "id": "A03",
+        "answerable": true,
+        "status": "answered",
+        "evidence_in_answer": true,
+        "cited_expected_doc": true,
+        "top_similarity": 0.8426,
+        "coverage": 1.0,
+        "answer": "Peak season runs from 1 April to 30 June and from 20 December to 5 January. [POL-CANCEL-001#2] During peak season the free cancellation window is 7 days before arrival. [POL-CANCEL-001#2]"
+      },
+      {
+        "id": "A05",
+        "answerable": true,
+        "status": "answered",
+        "evidence_in_answer": true,
+        "cited_expected_doc": true,
+        "top_similarity": 0.8805,
+        "coverage": 0.7687,
+        "answer": "Private Pool Villa reservations can be cancelled free of charge until 14 days before arrival in all seasons. [POL-CANCEL-001#3] Cancellations within 14 days of arrival are charged two nights at the booked rate, or the full stay if the stay is shorter than two nights. [POL-CANCEL-001#3]"
+      },
+      {
+        "id": "A07",
+        "answerable": true,
+        "status": "answered",
+        "evidence_in_answer": false,
+        "cited_expected_doc": true,
+        "top_similarity": 0.7591,
+        "coverage": 1.0,
+        "answer": "A guest who does not arrive and has not cancelled by 23:59 on the arrival date is a no-show. [POL-CANCEL-001#6] Guests who expect to arrive after midnight must inform the front desk to keep the room. [POL-CANCEL-001#6]"
+      },
+      {
+        "id": "A09",
+        "answerable": true,
+        "status": "insufficient_evidence",
+        "evidence_in_answer": false,
+        "cited_expected_doc": false,
+        "top_similarity": 0.8342,
+        "coverage": 0.2666,
+        "answer": "I don't know. The hotel's documents do not contain enough information to answer this question. Please check with a manager."
+      },
+      {
+        "id": "A11",
+        "answerable": true,
+        "status": "answered",
+        "evidence_in_answer": true,
+        "cited_expected_doc": true,
+        "top_similarity": 0.8005,
+        "coverage": 1.0,
+        "answer": "Check-in time is 14:00 and check-out time is 11:00 for all room types, including suites and villas. [POL-CHECKIN-001#0] Early check-in from 10:00 is free of charge, subject to availability. [POL-CHECKIN-001#3] Late check-out until 18:00 is charged at 50 percent of the nightly room rate. [POL-CHECKIN-001#4]"
+      },
+      {
+        "id": "A13",
+        "answerable": true,
+        "status": "answered",
+        "evidence_in_answer": true,
+        "cited_expected_doc": true,
+        "top_similarity": 0.7691,
+        "coverage": 0.6883,
+        "answer": "Late check-out until 13:00 is complimentary for Gold and Platinum loyalty members, subject to availability. [POL-CHECKIN-001#4]"
+      },
+      {
+        "id": "A15",
+        "answerable": true,
+        "status": "answered",
+        "evidence_in_answer": true,
+        "cited_expected_doc": true,
+        "top_similarity": 0.8337,
+        "coverage": 1.0,
+        "answer": "Every adult guest must present a valid government-issued photo identity document at check-in. [POL-CHECKIN-001#1] Foreign nationals must present their passport and a valid visa. [POL-CHECKIN-001#1] Details of foreign nationals must be registered with the local authorities within 24 hours of arrival, as required by law (Form C). [POL-CHECKIN-001#1]"
+      },
+      {
+        "id": "A17",
+        "answerable": true,
+        "status": "insufficient_evidence",
+        "evidence_in_answer": false,
+        "cited_expected_doc": false,
+        "top_similarity": 0.6508,
+        "coverage": 0.081,
+        "answer": "I don't know. The hotel's documents do not contain enough information to answer this question. Please check with a manager."
+      },
+      {
+        "id": "A19",
+        "answerable": true,
+        "status": "answered",
+        "evidence_in_answer": true,
+        "cited_expected_doc": true,
+        "top_similarity": 0.7908,
+        "coverage": 1.0,
+        "answer": "6 suites. [ROOM-GUIDE-001#5] 65 square metres with a separate living room, a bathtub and panoramic hill views. [ROOM-GUIDE-001#5] Rack rate ₹21,000. [ROOM-GUIDE-001#5]"
+      },
+      {
+        "id": "A21",
+        "answerable": true,
+        "status": "answered",
+        "evidence_in_answer": false,
+        "cited_expected_doc": false,
+        "top_similarity": 0.642,
+        "coverage": 1.0,
+        "answer": "Villa guests are met by their butler. [SOP-FO-ARRIVAL-001#3]"
+      },
+      {
+        "id": "A23",
+        "answerable": true,
+        "status": "answered",
+        "evidence_in_answer": true,
+        "cited_expected_doc": true,
+        "top_similarity": 0.5859,
+        "coverage": 0.5883,
+        "answer": "Children under 6 years stay free when using existing bedding. [ROOM-GUIDE-001#8] Baby cots are free on request. [ROOM-GUIDE-001#8]"
+      },
+      {
+        "id": "A25",
+        "answerable": true,
+        "status": "answered",
+        "evidence_in_answer": true,
+        "cited_expected_doc": true,
+        "top_similarity": 0.706,
+        "coverage": 0.7032,
+        "answer": "The breakfast buffet is served from 07:00 to 10:30. [FNB-OUTLETS-001#0]"
+      },
+      {
+        "id": "A27",
+        "answerable": true,
+        "status": "answered",
+        "evidence_in_answer": true,
+        "cited_expected_doc": true,
+        "top_similarity": 0.6927,
+        "coverage": 1.0,
+        "answer": "Open for dinner from 19:00 to 23:00, closed on Mondays. [FNB-OUTLETS-001#1] Open daily from 16:00 to 00:00, with last orders at 23:30. [FNB-OUTLETS-001#2] Live acoustic music is played on Friday and Saturday evenings from 20:00. [FNB-OUTLETS-001#2]"
+      },
+      {
+        "id": "A29",
+        "answerable": true,
+        "status": "answered",
+        "evidence_in_answer": true,
+        "cited_expected_doc": true,
+        "top_similarity": 0.7153,
+        "coverage": 0.675,
+        "answer": "Birthday cakes brought by guests may be served at Valley Table for a cake-cutting fee of ₹500. [FNB-OUTLETS-001#5]"
+      },
+      {
+        "id": "A31",
+        "answerable": true,
+        "status": "answered",
+        "evidence_in_answer": true,
+        "cited_expected_doc": true,
+        "top_similarity": 0.7645,
+        "coverage": 1.0,
+        "answer": "Orders must be delivered within 30 minutes for the full menu and within 20 minutes for beverages only. [FNB-IRD-001#1] If an order will be later than promised, the order taker must call the guest with an updated time. [FNB-IRD-001#1] If a room problem cannot be fixed within 30 minutes, offer the guest a room move to an available room of the same or a higher category, at no extra charge. [SR-RECOVERY-001#5]"
+      },
+      {
+        "id": "A33",
+        "answerable": true,
+        "status": "answered",
+        "evidence_in_answer": true,
+        "cited_expected_doc": true,
+        "top_similarity": 0.7016,
+        "coverage": 1.0,
+        "answer": "Butter chicken with naan: ₹850 [FNB-IRD-001#3]"
+      },
+      {
+        "id": "A35",
+        "answerable": true,
+        "status": "answered",
+        "evidence_in_answer": true,
+        "cited_expected_doc": true,
+        "top_similarity": 0.7334,
+        "coverage": 1.0,
+        "answer": "Jain meals, prepared without onion, garlic or root vegetables, are available with two hours' notice. [FNB-ALLERGEN-001#3]"
+      },
+      {
+        "id": "A37",
+        "answerable": true,
+        "status": "answered",
+        "evidence_in_answer": true,
+        "cited_expected_doc": true,
+        "top_similarity": 0.7178,
+        "coverage": 0.5063,
+        "answer": "The main assembly point is the front lawn near the main gate. [EMG-FIRE-001#3] Villa guests and villa staff assemble at the villa garden gate. [EMG-FIRE-001#3] Housekeeping and front office staff check corridors and assist guests with reduced mobility. Guests in accessible rooms 101 and 102 are assisted first. [EMG-FIRE-001#3]"
+      },
+      {
+        "id": "A39",
+        "answerable": true,
+        "status": "answered",
+        "evidence_in_answer": true,
+        "cited_expected_doc": true,
+        "top_similarity": 0.7197,
+        "coverage": 0.4913,
+        "answer": "A medical emergency is announced as Code Blue, followed by the location. [EMG-MEDICAL-001#0] Dial 5555 and report Code Blue, the exact location and the person's condition. [EMG-MEDICAL-001#1] The Duty Manager decides whether to call an ambulance on 108. [EMG-MEDICAL-001#3]"
+      },
+      {
+        "id": "A41",
+        "answerable": true,
+        "status": "answered",
+        "evidence_in_answer": true,
+        "cited_expected_doc": true,
+        "top_similarity": 0.7821,
+        "coverage": 1.0,
+        "answer": "The nearest hospital with an emergency department is Hillcrest District Hospital, 14 kilometres away, about 30 minutes by road. [EMG-MEDICAL-001#3]"
+      },
+      {
+        "id": "A43",
+        "answerable": true,
+        "status": "answered",
+        "evidence_in_answer": true,
+        "cited_expected_doc": true,
+        "top_similarity": 0.749,
+        "coverage": 1.0,
+        "answer": "The monsoon season runs from July to September. [EMG-WEATHER-001#1] During this period guided treks and the sunrise viewpoint drive are suspended whenever the regional weather service issues an orange or red alert. [EMG-WEATHER-001#1]"
+      },
+      {
+        "id": "A45",
+        "answerable": true,
+        "status": "answered",
+        "evidence_in_answer": true,
+        "cited_expected_doc": true,
+        "top_similarity": 0.7292,
+        "coverage": 1.0,
+        "answer": "A supervisor may approve compensation up to ₹5,000. [SR-RECOVERY-001#2]"
+      },
+      {
+        "id": "A47",
+        "answerable": true,
+        "status": "insufficient_evidence",
+        "evidence_in_answer": false,
+        "cited_expected_doc": false,
+        "top_similarity": 0.6556,
+        "coverage": 0.3876,
+        "answer": "I don't know. The hotel's documents do not contain enough information to answer this question. Please check with a manager."
+      },
+      {
+        "id": "A49",
+        "answerable": true,
+        "status": "answered",
+        "evidence_in_answer": true,
+        "cited_expected_doc": true,
+        "top_similarity": 0.8349,
+        "coverage": 0.817,
+        "answer": "Greet every arriving guest within 30 seconds of reaching the desk, make eye contact and use the guest's name as soon as it is known. [SOP-FO-ARRIVAL-001#1]"
+      },
+      {
+        "id": "A51",
+        "answerable": true,
+        "status": "answered",
+        "evidence_in_answer": true,
+        "cited_expected_doc": true,
+        "top_similarity": 0.6666,
+        "coverage": 1.0,
+        "answer": "Offer a welcome drink of chilled lemongrass tea. [SOP-FO-ARRIVAL-001#1] A welcome amenity of fresh fruit and a handwritten note is placed in the room before arrival. [SOP-FO-ARRIVAL-001#3]"
+      },
+      {
+        "id": "A53",
+        "answerable": true,
+        "status": "answered",
+        "evidence_in_answer": true,
+        "cited_expected_doc": true,
+        "top_similarity": 0.794,
+        "coverage": 1.0,
+        "answer": "Clean: the room has been cleaned by a room attendant but not yet inspected. [SOP-HK-ROOM-001#0] Inspected: a supervisor has inspected the room and it is ready to sell. [SOP-HK-ROOM-001#0] Only inspected rooms should be assigned to arriving guests. [SOP-HK-ROOM-001#0]"
+      },
+      {
+        "id": "A55",
+        "answerable": true,
+        "status": "answered",
+        "evidence_in_answer": true,
+        "cited_expected_doc": true,
+        "top_similarity": 0.7455,
+        "coverage": 0.6801,
+        "answer": "Valuables are kept for 180 days. [SOP-LOSTFOUND-001#2] Other items are kept for 90 days. [SOP-LOSTFOUND-001#2] Valuables such as jewellery, cash, passports, phones and laptops are moved to the security safe within one hour of being found. [SOP-LOSTFOUND-001#1]"
+      },
+      {
+        "id": "A57",
+        "answerable": true,
+        "status": "answered",
+        "evidence_in_answer": true,
+        "cited_expected_doc": true,
+        "top_similarity": 0.6455,
+        "coverage": 1.0,
+        "answer": "All rooms, villas and indoor areas are non-smoking. [POL-CONDUCT-001#0] Smoking is allowed only in the designated smoking area next to the guest car park. [POL-CONDUCT-001#0] Music and loud noise on balconies, sit-outs and in villa gardens are not permitted during quiet hours. [POL-CONDUCT-001#3]"
+      },
+      {
+        "id": "A59",
+        "answerable": true,
+        "status": "answered",
+        "evidence_in_answer": true,
+        "cited_expected_doc": true,
+        "top_similarity": 0.6898,
+        "coverage": 1.0,
+        "answer": "There is no lifeguard on duty; guests swim at their own risk. [POL-CONDUCT-001#4]"
+      },
+      {
+        "id": "A61",
+        "answerable": true,
+        "status": "insufficient_evidence",
+        "evidence_in_answer": false,
+        "cited_expected_doc": false,
+        "top_similarity": 0.7775,
+        "coverage": 0.44,
+        "answer": "I don't know. The hotel's documents do not contain enough information to answer this question. Please check with a manager."
+      },
+      {
+        "id": "A63",
+        "answerable": true,
+        "status": "answered",
+        "evidence_in_answer": true,
+        "cited_expected_doc": true,
+        "top_similarity": 0.7888,
+        "coverage": 0.7051,
+        "answer": "If a guest shows signs of an allergic reaction, such as swelling of the lips or face, difficulty breathing or a rash, call Code Blue immediately by dialling 5555 and follow the Medical Emergency Procedure. [FNB-ALLERGEN-001#4] Do not give the guest any medication. [FNB-ALLERGEN-001#4]"
+      },
+      {
+        "id": "U01",
+        "answerable": false,
+        "status": "insufficient_evidence",
+        "evidence_in_answer": false,
+        "cited_expected_doc": false,
+        "top_similarity": 0.6748,
+        "coverage": 0.327,
+        "answer": "I don't know. The hotel's documents do not contain enough information to answer this question. Please check with a manager."
+      },
+      {
+        "id": "U03",
+        "answerable": false,
+        "status": "insufficient_evidence",
+        "evidence_in_answer": false,
+        "cited_expected_doc": false,
+        "top_similarity": 0.5708,
+        "coverage": 0.6757,
+        "answer": "I don't know. The hotel's documents do not contain enough information to answer this question. Please check with a manager."
+      },
+      {
+        "id": "U05",
+        "answerable": false,
+        "status": "insufficient_evidence",
+        "evidence_in_answer": false,
+        "cited_expected_doc": false,
+        "top_similarity": 0.5238,
+        "coverage": 0.0,
+        "answer": "I don't know. The hotel's documents do not contain enough information to answer this question. Please check with a manager."
+      },
+      {
+        "id": "U07",
+        "answerable": false,
+        "status": "insufficient_evidence",
+        "evidence_in_answer": false,
+        "cited_expected_doc": false,
+        "top_similarity": 0.5097,
+        "coverage": 0.4098,
+        "answer": "I don't know. The hotel's documents do not contain enough information to answer this question. Please check with a manager."
+      },
+      {
+        "id": "U09",
+        "answerable": false,
+        "status": "insufficient_evidence",
+        "evidence_in_answer": false,
+        "cited_expected_doc": false,
+        "top_similarity": 0.6265,
+        "coverage": 0.0373,
+        "answer": "I don't know. The hotel's documents do not contain enough information to answer this question. Please check with a manager."
+      },
+      {
+        "id": "U11",
+        "answerable": false,
+        "status": "insufficient_evidence",
+        "evidence_in_answer": false,
+        "cited_expected_doc": false,
+        "top_similarity": 0.5779,
+        "coverage": 1.0,
+        "answer": "I don't know. The hotel's documents do not contain enough information to answer this question. Please check with a manager."
+      },
+      {
+        "id": "U13",
+        "answerable": false,
+        "status": "insufficient_evidence",
+        "evidence_in_answer": false,
+        "cited_expected_doc": false,
+        "top_similarity": 0.6137,
+        "coverage": 0.0652,
+        "answer": "I don't know. The hotel's documents do not contain enough information to answer this question. Please check with a manager."
+      },
+      {
+        "id": "U15",
+        "answerable": false,
+        "status": "insufficient_evidence",
+        "evidence_in_answer": false,
+        "cited_expected_doc": false,
+        "top_similarity": 0.7152,
+        "coverage": 0.4383,
+        "answer": "I don't know. The hotel's documents do not contain enough information to answer this question. Please check with a manager."
+      },
+      {
+        "id": "U17",
+        "answerable": false,
+        "status": "insufficient_evidence",
+        "evidence_in_answer": false,
+        "cited_expected_doc": false,
+        "top_similarity": 0.612,
+        "coverage": 0.2257,
+        "answer": "I don't know. The hotel's documents do not contain enough information to answer this question. Please check with a manager."
+      },
+      {
+        "id": "U19",
+        "answerable": false,
+        "status": "insufficient_evidence",
+        "evidence_in_answer": false,
+        "cited_expected_doc": false,
+        "top_similarity": 0.5424,
+        "coverage": 0.1394,
+        "answer": "I don't know. The hotel's documents do not contain enough information to answer this question. Please check with a manager."
+      }
+    ]
+  },
+  "end_to_end_test": {
+    "questions": 41,
+    "answerable": 32,
+    "unanswerable": 9,
+    "answer_rate_on_answerable": 0.8125,
+    "evidence_in_answer_rate": 0.75,
+    "cited_expected_doc_rate": 0.7812,
+    "refusal_recall": 0.7778,
+    "refusal_precision": 0.5385,
+    "false_answers_on_unanswerable": [
+      "U02",
+      "U04"
+    ],
+    "latency_ms_p50": 250.9,
+    "latency_ms_p95": 342.2,
+    "rows": [
+      {
+        "id": "A02",
+        "answerable": true,
+        "status": "answered",
+        "evidence_in_answer": true,
+        "cited_expected_doc": true,
+        "top_similarity": 0.8249,
+        "coverage": 0.8585,
+        "answer": "Guests may cancel free of charge until 48 hours before the scheduled arrival time of 14:00 on the arrival date. [POL-CANCEL-001#1] A cancellation made less than 48 hours before arrival is charged one night's room rate including taxes. [POL-CANCEL-001#1] Bookings made under a corporate agreement may be cancelled free of charge until 24 hours before arrival. [POL-CANCEL-001#4]"
+      },
+      {
+        "id": "A04",
+        "answerable": true,
+        "status": "answered",
+        "evidence_in_answer": true,
+        "cited_expected_doc": true,
+        "top_similarity": 0.7872,
+        "coverage": 0.476,
+        "answer": "Peak season runs from 1 April to 30 June and from 20 December to 5 January. [POL-CANCEL-001#2]"
+      },
+      {
+        "id": "A06",
+        "answerable": true,
+        "status": "answered",
+        "evidence_in_answer": true,
+        "cited_expected_doc": true,
+        "top_similarity": 0.7703,
+        "coverage": 0.4742,
+        "answer": "The advance purchase rate is fully prepaid and non-refundable. [POL-CANCEL-001#5] Only the General Manager may approve an exception, for example a documented medical emergency, and any exception is issued as a credit for a future stay rather than a cash refund. [POL-CANCEL-001#5] Guests may cancel free of charge until 48 hours before the scheduled arrival time of 14:00 on the arrival date. [POL-CANCEL-001#1]"
+      },
+      {
+        "id": "A08",
+        "answerable": true,
+        "status": "answered",
+        "evidence_in_answer": true,
+        "cited_expected_doc": true,
+        "top_similarity": 0.8314,
+        "coverage": 1.0,
+        "answer": "Reservations made through an online travel agent (OTA) follow the cancellation terms shown on the OTA at the time of booking. [POL-CANCEL-001#7] Cancellations and refunds for these bookings must be processed through the OTA, not directly by the hotel. [POL-CANCEL-001#7]"
+      },
+      {
+        "id": "A10",
+        "answerable": true,
+        "status": "answered",
+        "evidence_in_answer": true,
+        "cited_expected_doc": true,
+        "top_similarity": 0.7944,
+        "coverage": 0.5315,
+        "answer": "The Duty Manager may waive a cancellation charge of up to one night. [POL-CANCEL-001#9] Any waiver above one night requires approval from the General Manager. [POL-CANCEL-001#9] A cancellation made less than 48 hours before arrival is charged one night's room rate including taxes. [POL-CANCEL-001#1]"
+      },
+      {
+        "id": "A12",
+        "answerable": true,
+        "status": "answered",
+        "evidence_in_answer": true,
+        "cited_expected_doc": true,
+        "top_similarity": 0.7907,
+        "coverage": 1.0,
+        "answer": "At check-in the front desk takes a pre-authorisation for the full room charges plus an incidental deposit of ₹5,000 per room per stay. [POL-CHECKIN-001#2] Guests on prepaid rates provide only the incidental deposit. [POL-CHECKIN-001#2]"
+      },
+      {
+        "id": "A14",
+        "answerable": true,
+        "status": "answered",
+        "evidence_in_answer": true,
+        "cited_expected_doc": true,
+        "top_similarity": 0.6746,
+        "coverage": 0.5852,
+        "answer": "For other guests, late check-out until 13:00 costs ₹1,500. [POL-CHECKIN-001#4] Late check-out until 18:00 is charged at 50 percent of the nightly room rate. [POL-CHECKIN-001#4] Departures after 18:00 are charged a full additional night. [POL-CHECKIN-001#4]"
+      },
+      {
+        "id": "A16",
+        "answerable": true,
+        "status": "answered",
+        "evidence_in_answer": true,
+        "cited_expected_doc": true,
+        "top_similarity": 0.7899,
+        "coverage": 1.0,
+        "answer": "Early check-in from 10:00 is free of charge, subject to availability. [POL-CHECKIN-001#3] A guaranteed early check-in before 10:00 must be requested in advance and is charged at 50 percent of the nightly room rate. [POL-CHECKIN-001#3]"
+      },
+      {
+        "id": "A18",
+        "answerable": true,
+        "status": "insufficient_evidence",
+        "evidence_in_answer": false,
+        "cited_expected_doc": false,
+        "top_similarity": 0.6165,
+        "coverage": 0.0445,
+        "answer": "I don't know. The hotel's documents do not contain enough information to answer this question. Please check with a manager."
+      },
+      {
+        "id": "A20",
+        "answerable": true,
+        "status": "answered",
+        "evidence_in_answer": true,
+        "cited_expected_doc": true,
+        "top_similarity": 0.7995,
+        "coverage": 1.0,
+        "answer": "Rack rate ₹9,000. [ROOM-GUIDE-001#3]"
+      },
+      {
+        "id": "A22",
+        "answerable": true,
+        "status": "answered",
+        "evidence_in_answer": true,
+        "cited_expected_doc": true,
+        "top_similarity": 0.8085,
+        "coverage": 1.0,
+        "answer": "An extra bed costs ₹2,000 per night and is available only in Deluxe Valley View, Premier Garden Room, Hillside Suite and Private Pool Villa categories, within the maximum occupancy. [ROOM-GUIDE-001#8]"
+      },
+      {
+        "id": "A24",
+        "answerable": true,
+        "status": "answered",
+        "evidence_in_answer": true,
+        "cited_expected_doc": true,
+        "top_similarity": 0.8142,
+        "coverage": 1.0,
+        "answer": "Soft drinks ₹150, juices ₹180, local craft beer ₹450, snacks from ₹120. [ROOM-GUIDE-001#9]"
+      },
+      {
+        "id": "A26",
+        "answerable": true,
+        "status": "answered",
+        "evidence_in_answer": true,
+        "cited_expected_doc": true,
+        "top_similarity": 0.8592,
+        "coverage": 1.0,
+        "answer": "Open for dinner from 19:00 to 23:00, closed on Mondays. [FNB-OUTLETS-001#1]"
+      },
+      {
+        "id": "A28",
+        "answerable": true,
+        "status": "answered",
+        "evidence_in_answer": true,
+        "cited_expected_doc": true,
+        "top_similarity": 0.6851,
+        "coverage": 1.0,
+        "answer": "High tea is served from 16:00 to 18:00 for ₹950 per person. [FNB-OUTLETS-001#3]"
+      },
+      {
+        "id": "A30",
+        "answerable": true,
+        "status": "answered",
+        "evidence_in_answer": true,
+        "cited_expected_doc": true,
+        "top_similarity": 0.6894,
+        "coverage": 1.0,
+        "answer": "A limited night menu is served from 23:00 to 06:30. [FNB-IRD-001#0] Guests order by dialling 7 from the room telephone. [FNB-IRD-001#0] If an order will be later than promised, the order taker must call the guest with an updated time. [FNB-IRD-001#1]"
+      },
+      {
+        "id": "A32",
+        "answerable": true,
+        "status": "answered",
+        "evidence_in_answer": true,
+        "cited_expected_doc": true,
+        "top_similarity": 0.8342,
+        "coverage": 1.0,
+        "answer": "A tray charge of ₹200 applies to every in-room dining order. [FNB-IRD-001#2] Prices on the menu exclude taxes. [FNB-IRD-001#2] All orders are charged to the room folio and the guest signs the bill on delivery. [FNB-IRD-001#2]"
+      },
+      {
+        "id": "A34",
+        "answerable": true,
+        "status": "answered",
+        "evidence_in_answer": false,
+        "cited_expected_doc": true,
+        "top_similarity": 0.7418,
+        "coverage": 1.0,
+        "answer": "The server confirms the allergy with the guest when the dish is served. [FNB-ALLERGEN-001#2] If a guest shows signs of an allergic reaction, such as swelling of the lips or face, difficulty breathing or a rash, call Code Blue immediately by dialling 5555 and follow the Medical Emergency Procedure. [FNB-ALLERGEN-001#4] Do not give the guest any medication. [FNB-ALLERGEN-001#4]"
+      },
+      {
+        "id": "A36",
+        "answerable": true,
+        "status": "answered",
+        "evidence_in_answer": true,
+        "cited_expected_doc": true,
+        "top_similarity": 0.738,
+        "coverage": 1.0,
+        "answer": "A fire or smoke emergency is announced as Code Red, followed by the location. [EMG-FIRE-001#0] Example: \"Code Red, Valley Table kitchen\". [EMG-FIRE-001#0]"
+      },
+      {
+        "id": "A38",
+        "answerable": true,
+        "status": "insufficient_evidence",
+        "evidence_in_answer": false,
+        "cited_expected_doc": false,
+        "top_similarity": 0.6707,
+        "coverage": 0.3161,
+        "answer": "I don't know. The hotel's documents do not contain enough information to answer this question. Please check with a manager."
+      },
+      {
+        "id": "A40",
+        "answerable": true,
+        "status": "answered",
+        "evidence_in_answer": true,
+        "cited_expected_doc": true,
+        "top_similarity": 0.7536,
+        "coverage": 1.0,
+        "answer": "Automated external defibrillators (AEDs) are kept at the front desk, at the spa reception and at the entrance of Valley Table. [EMG-MEDICAL-001#2]"
+      },
+      {
+        "id": "A42",
+        "answerable": true,
+        "status": "answered",
+        "evidence_in_answer": true,
+        "cited_expected_doc": true,
+        "top_similarity": 0.8103,
+        "coverage": 0.6618,
+        "answer": "Backup generators start automatically. [EMG-WEATHER-001#0] Emergency lighting, lifts, the kitchen and the front desk systems are restored within 15 seconds. [EMG-WEATHER-001#0] If power is not restored within 2 minutes, engineering checks the generator and the front desk calls affected guests. [EMG-WEATHER-001#0]"
+      },
+      {
+        "id": "A44",
+        "answerable": true,
+        "status": "answered",
+        "evidence_in_answer": true,
+        "cited_expected_doc": true,
+        "top_similarity": 0.7768,
+        "coverage": 0.5635,
+        "answer": "If the access road is closed by a landslide, the Duty Manager informs all in-house guests, offers to extend stays at the same rate for guests who cannot depart, and waives late check-out charges for affected guests. [EMG-WEATHER-001#2] Arriving guests are contacted to reschedule; no cancellation charge applies when the road is officially closed. [EMG-WEATHER-001#2]"
+      },
+      {
+        "id": "A46",
+        "answerable": true,
+        "status": "insufficient_evidence",
+        "evidence_in_answer": false,
+        "cited_expected_doc": false,
+        "top_similarity": 0.5241,
+        "coverage": 0.6128,
+        "answer": "I don't know. The hotel's documents do not contain enough information to answer this question. Please check with a manager."
+      },
+      {
+        "id": "A48",
+        "answerable": true,
+        "status": "insufficient_evidence",
+        "evidence_in_answer": false,
+        "cited_expected_doc": false,
+        "top_similarity": 0.6944,
+        "coverage": 0.0822,
+        "answer": "I don't know. The hotel's documents do not contain enough information to answer this question. Please check with a manager."
+      },
+      {
+        "id": "A50",
+        "answerable": true,
+        "status": "answered",
+        "evidence_in_answer": false,
+        "cited_expected_doc": false,
+        "top_similarity": 0.6491,
+        "coverage": 1.0,
+        "answer": "Write it on the key card wallet instead. [SOP-PRIVACY-001#0] Grand Hills Resort has 80 rooms: 76 rooms on floors 1 to 4 of the main building and four Private Pool Villas (V01 to V04) in the villa garden. [ROOM-GUIDE-001#0] 10 rooms. [ROOM-GUIDE-001#4]"
+      },
+      {
+        "id": "A52",
+        "answerable": true,
+        "status": "answered",
+        "evidence_in_answer": true,
+        "cited_expected_doc": true,
+        "top_similarity": 0.8237,
+        "coverage": 0.7323,
+        "answer": "Departure clean, Private Pool Villas: 90 minutes, including the plunge pool check. [SOP-HK-ROOM-001#1]"
+      },
+      {
+        "id": "A54",
+        "answerable": true,
+        "status": "answered",
+        "evidence_in_answer": true,
+        "cited_expected_doc": true,
+        "top_similarity": 0.8226,
+        "coverage": 0.7104,
+        "answer": "If the sign is still displayed at 15:00, the housekeeping supervisor calls the room to offer service. [SOP-HK-ROOM-001#3]"
+      },
+      {
+        "id": "A56",
+        "answerable": true,
+        "status": "insufficient_evidence",
+        "evidence_in_answer": false,
+        "cited_expected_doc": false,
+        "top_similarity": 0.7686,
+        "coverage": 0.3229,
+        "answer": "I don't know. The hotel's documents do not contain enough information to answer this question. Please check with a manager."
+      },
+      {
+        "id": "A58",
+        "answerable": true,
+        "status": "insufficient_evidence",
+        "evidence_in_answer": false,
+        "cited_expected_doc": false,
+        "top_similarity": 0.7982,
+        "coverage": 0.0,
+        "answer": "I don't know. The hotel's documents do not contain enough information to answer this question. Please check with a manager."
+      },
+      {
+        "id": "A60",
+        "answerable": true,
+        "status": "answered",
+        "evidence_in_answer": true,
+        "cited_expected_doc": true,
+        "top_similarity": 0.7516,
+        "coverage": 1.0,
+        "answer": "Quiet hours are from 22:00 to 07:00. [POL-CONDUCT-001#3]"
+      },
+      {
+        "id": "A62",
+        "answerable": true,
+        "status": "answered",
+        "evidence_in_answer": true,
+        "cited_expected_doc": true,
+        "top_similarity": 0.8341,
+        "coverage": 1.0,
+        "answer": "Before discussing or changing a reservation, verify the caller by asking for the confirmation code and the guest's last name, plus either the arrival date or the email address on the booking. [SOP-PRIVACY-001#2] If the caller cannot be verified, do not share any details. [SOP-PRIVACY-001#2]"
+      },
+      {
+        "id": "A64",
+        "answerable": true,
+        "status": "answered",
+        "evidence_in_answer": true,
+        "cited_expected_doc": true,
+        "top_similarity": 0.7957,
+        "coverage": 1.0,
+        "answer": "During thunderstorms the pool and outdoor areas are closed. [EMG-WEATHER-001#3]"
+      },
+      {
+        "id": "U02",
+        "answerable": false,
+        "status": "answered",
+        "evidence_in_answer": false,
+        "cited_expected_doc": false,
+        "top_similarity": 0.6445,
+        "coverage": 0.4919,
+        "answer": "Open daily from 10:00 to 18:00 in the lobby. [FNB-OUTLETS-001#3] Serves estate teas, coffee, cakes and light snacks. [FNB-OUTLETS-001#3] Quiet hours are from 22:00 to 07:00. [POL-CONDUCT-001#3]"
+      },
+      {
+        "id": "U04",
+        "answerable": false,
+        "status": "answered",
+        "evidence_in_answer": false,
+        "cited_expected_doc": false,
+        "top_similarity": 0.5918,
+        "coverage": 1.0,
+        "answer": "A cleaning fee of ₹10,000 is charged when there is evidence of smoking in a room or villa. [POL-CONDUCT-001#0] For guests whose rate does not include breakfast, the breakfast buffet costs ₹1,200 per adult and ₹600 per child aged 6 to 12; children under 6 eat free. [FNB-OUTLETS-001#0] An extra bed costs ₹2,000 per night and is available only in Deluxe Valley View, Premier Garden Room, Hillside Suite and Private Pool Villa categories, within the maximum occupancy. [ROOM-GUIDE-001#8]"
+      },
+      {
+        "id": "U06",
+        "answerable": false,
+        "status": "insufficient_evidence",
+        "evidence_in_answer": false,
+        "cited_expected_doc": false,
+        "top_similarity": 0.5797,
+        "coverage": 0.327,
+        "answer": "I don't know. The hotel's documents do not contain enough information to answer this question. Please check with a manager."
+      },
+      {
+        "id": "U08",
+        "answerable": false,
+        "status": "insufficient_evidence",
+        "evidence_in_answer": false,
+        "cited_expected_doc": false,
+        "top_similarity": 0.5963,
+        "coverage": 0.1711,
+        "answer": "I don't know. The hotel's documents do not contain enough information to answer this question. Please check with a manager."
+      },
+      {
+        "id": "U10",
+        "answerable": false,
+        "status": "insufficient_evidence",
+        "evidence_in_answer": false,
+        "cited_expected_doc": false,
+        "top_similarity": 0.5563,
+        "coverage": 0.1453,
+        "answer": "I don't know. The hotel's documents do not contain enough information to answer this question. Please check with a manager."
+      },
+      {
+        "id": "U12",
+        "answerable": false,
+        "status": "insufficient_evidence",
+        "evidence_in_answer": false,
+        "cited_expected_doc": false,
+        "top_similarity": 0.5784,
+        "coverage": 0.6815,
+        "answer": "I don't know. The hotel's documents do not contain enough information to answer this question. Please check with a manager."
+      },
+      {
+        "id": "U14",
+        "answerable": false,
+        "status": "insufficient_evidence",
+        "evidence_in_answer": false,
+        "cited_expected_doc": false,
+        "top_similarity": 0.5079,
+        "coverage": 0.4098,
+        "answer": "I don't know. The hotel's documents do not contain enough information to answer this question. Please check with a manager."
+      },
+      {
+        "id": "U16",
+        "answerable": false,
+        "status": "insufficient_evidence",
+        "evidence_in_answer": false,
+        "cited_expected_doc": false,
+        "top_similarity": 0.5439,
+        "coverage": 0.4821,
+        "answer": "I don't know. The hotel's documents do not contain enough information to answer this question. Please check with a manager."
+      },
+      {
+        "id": "U18",
+        "answerable": false,
+        "status": "insufficient_evidence",
+        "evidence_in_answer": false,
+        "cited_expected_doc": false,
+        "top_similarity": 0.5682,
+        "coverage": 0.2835,
+        "answer": "I don't know. The hotel's documents do not contain enough information to answer this question. Please check with a manager."
+      }
+    ]
+  },
+  "wall_seconds": 28.0
+}

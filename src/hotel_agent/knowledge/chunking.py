@@ -91,7 +91,7 @@ def _paragraphs(lines: list[str]) -> list[str]:
     return blocks
 
 
-def _split_sentences(text: str) -> list[str]:
+def split_sentences(text: str) -> list[str]:
     return [s.strip() for s in _SENTENCE_END.split(text) if s.strip()]
 
 
@@ -99,7 +99,7 @@ def _pieces(paragraph: str, max_tokens: int, count: TokenCounter) -> list[str]:
     """Break one paragraph into pieces that fit, preferring line then sentence boundaries."""
     if count(paragraph) <= max_tokens:
         return [paragraph]
-    units = paragraph.splitlines() if "\n" in paragraph else _split_sentences(paragraph)
+    units = paragraph.splitlines() if "\n" in paragraph else split_sentences(paragraph)
     if len(units) == 1:
         # A single over-long sentence: hard split on words as a last resort.
         words = units[0].split()
@@ -112,7 +112,7 @@ def _pieces(paragraph: str, max_tokens: int, count: TokenCounter) -> list[str]:
 
 
 def _last_sentence(text: str) -> str:
-    sentences = _split_sentences(text.splitlines()[-1])
+    sentences = split_sentences(text.splitlines()[-1])
     return sentences[-1] if sentences else ""
 
 

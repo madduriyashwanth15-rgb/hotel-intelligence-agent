@@ -39,9 +39,17 @@ class JsonFormatter(logging.Formatter):
         return json.dumps(payload, default=str)
 
 
+class _CurrentStdoutHandler(logging.StreamHandler):  # type: ignore[type-arg]
+    """Writes to whatever `sys.stdout` is at emit time (robust if stdout is swapped)."""
+
+    def emit(self, record: logging.LogRecord) -> None:
+        self.stream = sys.stdout
+        super().emit(record)
+
+
 def configure_logging(level: str = "INFO") -> None:
     """Install the JSON formatter on the root logger (idempotent)."""
-    handler = logging.StreamHandler(sys.stdout)
+    handler = _CurrentStdoutHandler(sys.stdout)
     handler.setFormatter(JsonFormatter())
     root = logging.getLogger()
     root.handlers.clear()
