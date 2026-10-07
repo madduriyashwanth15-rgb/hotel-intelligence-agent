@@ -55,15 +55,22 @@ procedures, service recovery policies — 15 synthetic Grand Hills Resort docume
 Held-out results: retrieval Recall@5 1.00; answers contain the expected evidence 75% of
 the time; 78% of unanswerable questions refused (see ARCHITECTURE §2.9).
 
-### B. Hotel data intelligence — data foundation TESTED; question answering PLANNED (Phase 3)
+### B. Hotel data intelligence — TESTED (Phase 3, deterministic fake generator)
 Reservations, occupancy, rooms, revenue, housekeeping.
 
 | Item | Status |
 |---|---|
 | Operational schema (hotels, room types, rooms, guests, reservations, folio charges, housekeeping tasks) | TESTED |
 | Deterministic synthetic dataset for Grand Hills Resort | TESTED |
-| Read-only database role for analytical queries | TESTED |
-| Natural-language questions over the data (Text-to-SQL) | PLANNED |
+| Read-only database role for analytics queries (`hotel_sql`, curated views) | TESTED |
+| Natural-language questions over the data — safety pipeline + rule-based fake generator | TESTED |
+| Natural-language questions over the data — LLM SQL generator | PLANNED (needs approval) |
+
+Supported question types (fake generator): occupancy (date, period, by room type),
+reservations by status/channel, arrivals, departures, bookings made, cancellations,
+no-shows, revenue (total/category), ADR/RevPAR, booking volume by room type, average
+booking value, average length of stay, room status, open housekeeping tasks. Everything
+else is refused with a reason code.
 
 ### C. Controlled tools — PLANNED (Phase 4)
 Examples: `get_reservation`, `get_room_status`, `get_occupancy`,
@@ -78,6 +85,7 @@ synthetic policy documents.
 |---|---|
 | FastAPI service with `/health` and `/health/ready` | TESTED |
 | `POST /knowledge/ask` (knowledge Q&A) | TESTED |
+| `POST /data/ask` (operational data Q&A, read-only) | TESTED |
 | Structured JSON logging with request IDs | TESTED |
 | Agent orchestration (LangGraph) | PLANNED (Phase 5) |
 | MCP tool server | PLANNED (Phase 4) |

@@ -462,7 +462,11 @@ masked — never the question text. JSON logs only; audit tables deferred.
 ### Consequences
 - Semantically wrong but safe SQL cannot be blocked by safety checks; it is mitigated by
   the glossary, by showing the SQL, and by evaluation against independent reference SQL.
-- sqlglot is pinned; the bypass corpus guards against parser behaviour changes.
+- sqlglot is pinned (`>=30.21,<31`); the bypass corpus guards against parser changes.
+- Cost ceiling set to 250,000 planner units (~10× the most expensive valid evaluation
+  query, 24,683); per-query timeout 2 s, role timeout 3 s, 100 rows.
+- Measured (2026-10-07): bypass corpus 108/108 blocked; evaluation safety block rate
+  34/34, execution accuracy 34/34, refusal accuracy 51/51, wrong-but-safe detection 4/4.
 
 ---
 

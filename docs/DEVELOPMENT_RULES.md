@@ -103,6 +103,16 @@ A change is not "done" until all of the above pass.
   floors green. Raising a floor requires a new measured baseline.
 - Report metrics honestly, including regressions and known failure cases.
 
+### Text-to-SQL evaluation and security (Phase 3)
+
+- `eval/sql_cases.json`: answered cases need reference SQL on **raw** tables (never the
+  analytics views); unsafe cases must stay blocked — the safety block rate is a hard 100%
+  gate in `tests/test_sql_eval.py`, and the guard bypass corpus must block 100%.
+- Treat `SqlGuard` as security code: add bypass cases for every new construct you allow;
+  prefer allowlists; never relax a rule to make a test pass.
+- Database-layer tests must keep proving, with the guard bypassed, that `hotel_sql` cannot
+  read base tables, write, create objects or run long queries.
+
 ## 9. Synthetic data rules
 
 - All data describes the fictional Grand Hills Resort.

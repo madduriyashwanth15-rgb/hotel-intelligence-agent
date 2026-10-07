@@ -4,8 +4,9 @@ An AI copilot for hotel teams: grounded answers from SOPs and policies (RAG),
 controlled questions over operational data (Text-to-SQL), and safe hotel
 operations through tools with human approval.
 
-**Status: Phase 2 complete (grounded knowledge retrieval with extractive,
-cited answers).** No LLM is used. See [docs/ROADMAP.md](docs/ROADMAP.md).
+**Status: Phase 3 complete (grounded knowledge retrieval with cited extractive answers;
+controlled, read-only Text-to-SQL over curated views with a deterministic fake generator).**
+No LLM is used. See [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ## Project documentation
 
@@ -73,6 +74,19 @@ curl -X POST http://127.0.0.1:8000/knowledge/ask \
 Answers are sentences quoted verbatim from the documents, each with a citation such as
 `[EMG-FIRE-001#3]`; when the evidence is weak the answer is "I don't know".
 
+### Operational data (Phase 3, read-only)
+
+```bash
+uv run hotel-sql ask "How many rooms are occupied tonight?"
+uv run hotel-sql eval --output sql_eval.json   # safety + accuracy metrics -> eval/results/
+curl -X POST http://127.0.0.1:8000/data/ask -H "Content-Type: application/json" \
+  -d '{"question": "What revenue was generated last month?"}'
+```
+
+Generated SQL is validated by an allowlist guard and executed as `hotel_sql`, a role that
+can read only curated `analytics` views (no guest identities) and can never write. The
+response contains the answer and, separately, the exact SQL that was executed.
+
 > **Windows note:** use `POSTGRES_HOST=127.0.0.1`, not `localhost`. Windows
 > resolves `localhost` to IPv6 `::1` first, while the container is bound to
 > IPv4 only, so every connection stalls on a timeout before falling back.
@@ -99,6 +113,7 @@ src/hotel_agent/
   db/                  SQLAlchemy models, engine/session helpers
   synthetic/           deterministic data generator and loader CLI
   knowledge/           knowledge base: loader, chunker, embeddings, retrieval, answers, eval
+  sql/                 controlled Text-to-SQL: guard, executor, generators, pipeline, eval
 data/knowledge_base/   synthetic hotel documents (Markdown + TOML front matter)
 eval/                  evaluation questions and results
 migrations/            Alembic migrations
@@ -114,6 +129,7 @@ CLAUDE.md              persistent project instructions
 | `GET /health` | Liveness; never touches dependencies. |
 | `GET /health/ready` | Readiness; 200 only if the DB is reachable and migrated to head, else 503. |
 | `POST /knowledge/ask` | Grounded extractive answer with citations, or "insufficient evidence". |
+| `POST /data/ask` | Read-only operational answer + executed SQL, or a refusal with a reason code. |
 
 Every response carries an `X-Request-ID` header (a caller-supplied value is
 reused if it is safe, otherwise one is generated); the same id appears in logs.

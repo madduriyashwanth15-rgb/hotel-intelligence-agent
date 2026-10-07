@@ -50,7 +50,9 @@ Alembic · psycopg 3 · pytest · ruff · mypy · Docker for local development.
 Phase 2 additions: fastembed + BAAI/bge-small-en-v1.5 (ONNX, CPU, no PyTorch) ·
 hybrid retrieval in PostgreSQL (pgvector + full-text + RRF).
 
-**Current project state: Phases 1 and 2 are complete (verified 2026-10-07).**
+Phase 3 additions: sqlglot (SQL parsing/validation) · `analytics` views · `hotel_sql` role.
+
+**Current project state: Phases 1, 2 and 3 are complete (verified 2026-10-07).**
 
 Implemented and tested:
 - PostgreSQL 16 + pgvector (local Docker, bound to 127.0.0.1)
@@ -68,11 +70,17 @@ Implemented and tested:
   ingestion, hybrid retrieval as the read-only role, extractive cited answers with an
   "I don't know" gate, `POST /knowledge/ask`, `hotel-kb` CLI, evaluation set with
   held-out split and regression floors, prompt-injection tests
+- Phase 3: migration 0004 (`analytics` schema with 7 PII-free views, `hotel_sql` role,
+  `hotel_readonly` narrowed to kb tables), SqlGuard (allowlist, sqlglot), read-only
+  executor (timeout, EXPLAIN cost ceiling, row cap), `SqlGenerator` protocol with
+  deterministic fake generators (no LLM), pipeline with masked-SQL audit logs,
+  `POST /data/ask`, `hotel-sql` CLI, 90-case evaluation vs reference SQL (100% safety)
 
 ## 5. Planned AI architecture
 
-Future phases may introduce: local LLM (incl. LLM-generated RAG answers), Text-to-SQL,
-LangGraph, MCP, human-in-the-loop, observability. (Local embeddings, extractive RAG and
+Future phases may introduce: local LLM (incl. LLM-generated RAG answers and an LLM SQL
+generator), LangGraph, MCP, human-in-the-loop, observability. (The Text-to-SQL safety
+pipeline exists; only a deterministic fake generator is implemented.) (Local embeddings, extractive RAG and
 retrieval evaluation are implemented as of Phase 2.)
 
 These are **NOT implemented** until the corresponding roadmap phase is actually completed
@@ -175,6 +183,8 @@ uv run hotel-kb download-model       # one-time embedding model download (~65 MB
 uv run hotel-kb ingest               # embed data/knowledge_base into kb_chunks
 uv run hotel-kb ask "question"       # extractive answer with citations
 uv run hotel-kb eval --output kb_eval.json
+uv run hotel-sql ask "question"      # read-only operational answer + executed SQL
+uv run hotel-sql eval --output sql_eval.json
 uv run pytest                        # needs Postgres; `model` tests need the model
 uv run ruff format --check . && uv run ruff check . && uv run mypy
 ```
@@ -194,3 +204,11 @@ uv run ruff format --check . && uv run ruff check . && uv run mypy
   **dev** split; after changing documents, chunking or answering, re-run `hotel-kb eval`
   and recalibrate on dev — never tune on the test split.
 - Windows consoles default to cp1252; CLI output that may contain `₹` must be UTF-8.
+- `src/hotel_agent/sql/guard.py` is security code for untrusted input: never weaken a check
+  to make a test pass; the bypass corpus and the eval safety block rate must stay at 100%.
+- New analytics views need: migration (view + explicit GRANT to `hotel_analytics`), guard
+  `ALLOWED_VIEWS`, `sql/context.py` ViewSpec, reference-SQL tests. Never expose PII columns.
+- Generated SQL must use `analytics.business_date`, never `CURRENT_DATE`/`now()`.
+- Writing regexes through bash heredocs/`python -c` has produced invisible control chars
+  (`\b` became a backspace). Prefer the Edit tool or a script file; the hygiene test
+  `tests/test_repo_hygiene.py` catches this.

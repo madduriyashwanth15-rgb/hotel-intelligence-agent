@@ -8,7 +8,7 @@ IMPLEMENTED · TESTED · PLANNED · EXPERIMENTAL ([CLAUDE.md §13](../CLAUDE.md#
 |---|---|---|
 | 1 | Foundations and synthetic data | ✅ Complete — TESTED (2026-10-07) |
 | 2 | Grounded RAG | ✅ Complete — TESTED (2026-10-07) |
-| 3 | Controlled Text-to-SQL | IN PROGRESS (started 2026-10-07) |
+| 3 | Controlled Text-to-SQL | ✅ Complete — TESTED (2026-10-07) |
 | 4 | MCP tool server | PLANNED — not started |
 | 5 | LangGraph orchestration | PLANNED — not started |
 | 6 | Human approval for sensitive actions | PLANNED — not started |
@@ -70,33 +70,33 @@ Definition of Done — all items verified (final run 2026-10-07):
 Known Phase 2 limitations are listed in ARCHITECTURE §3 (extractive answers; heuristic
 refusal gate with 0.78 held-out refusal recall; small evaluation set).
 
-## Phase 3 — Controlled Text-to-SQL (IN PROGRESS)
+## Phase 3 — Controlled Text-to-SQL ✅ (2026-10-07)
 
 Approved decisions: ADR-0014 (analytics schema, `hotel_sql`, narrowed `hotel_readonly`),
 ADR-0015 (SQL safety pipeline), ADR-0016 (generator interface, deterministic fakes),
-ADR-0017 (business date, metric glossary). Out of scope: any LLM, Ollama, LangGraph, MCP,
-frontend, cloud, persistent audit tables.
+ADR-0017 (business date, metric glossary). Not implemented (out of scope): any LLM,
+Ollama, LangGraph, MCP, frontend, cloud, persistent audit tables.
 
-Definition of Done:
+Definition of Done — all items verified (final run 2026-10-07):
 
 - [x] Decision records (ADR-0014..0017; ADR-0005 amended)
-- [ ] Migration 0004: `analytics` schema + views, `hotel_sql`, narrowed `hotel_readonly`;
-      `alembic check` clean; round-trip tested; Phase 2 retrieval still works
-- [ ] Views verified against reference SQL on raw tables; no PII columns (tested)
-- [ ] `SqlGenerator` protocol, `RuleBasedFakeGenerator`, `ScriptedFakeGenerator` — tested
-- [ ] SqlGuard (all ADR-0015 checks); bypass corpus 100% blocked
-- [ ] Executor (timeout, row cap, rollback, error mapping); database-layer tests bypassing
-      the guard prove `hotel_sql` cannot read `public.guests`, write, create objects,
-      access forbidden schemas or run dangerous operations
-- [ ] EXPLAIN cost ceiling calibrated from valid evaluation queries
-- [ ] Deterministic formatter and refusals (incl. explicit "no posted revenue yet")
-- [ ] JSON audit logging with hashed questions and masked SQL — tested
-- [ ] `POST /data/ask`, `hotel-sql ask` / `hotel-sql eval` — tested and verified live
-- [ ] Evaluation (~70 cases, all categories) vs independent reference SQL: safety block
-      rate 100%, execution accuracy, refusal accuracy, false-refusal rate, wrong-but-safe
-      detection; regression floors in tests
-- [ ] RAM / disk / latency measured
-- [ ] All checks pass (pytest, ruff, mypy); docs and roadmap updated; committed
+- [x] Migration 0004: `analytics` schema + 7 views, `hotel_sql`, narrowed `hotel_readonly`;
+      `alembic check` clean; round-trip tested; Phase 2 retrieval and evaluation unchanged
+- [x] Views verified against reference SQL on raw tables; no PII columns (tested)
+- [x] `SqlGenerator` protocol, `RuleBasedFakeGenerator`, `ScriptedFakeGenerator` — tested
+- [x] SqlGuard (all ADR-0015 checks); bypass corpus 108/108 blocked, 17 safe queries allowed
+- [x] Executor (2 s timeout, row cap 100, rollback, SQLSTATE error mapping); database-layer
+      tests bypassing the guard prove `hotel_sql` cannot read `public.guests`, write,
+      create objects, access forbidden schemas, change settings or run long queries
+- [x] EXPLAIN cost ceiling 250,000 (~10x the most expensive valid query, 24,683)
+- [x] Deterministic formatter and refusals (incl. "no posted revenue yet" explanation)
+- [x] JSON audit logging with hashed questions, masked SQL, parameter names only — tested
+- [x] `POST /data/ask`, `hotel-sql ask` / `hotel-sql eval` — tested and verified live
+- [x] Evaluation (90 cases, 11 categories) vs independent reference SQL: safety block rate
+      100% (34/34), execution accuracy 100% (34/34), refusal accuracy 100% (51/51),
+      false-refusal rate 0, wrong-but-safe detection 4/4; regression floors in tests
+- [x] RAM / disk / latency measured (ARCHITECTURE §2.10)
+- [x] All checks pass (458 tests, ruff, mypy); docs and roadmap updated; committed
 
 ## Phase 4 — MCP tool server (PLANNED)
 
@@ -147,5 +147,11 @@ Record future ideas here instead of implementing them early.
 - Lightweight local trace viewer for Phase 7.
 - RAG: local LLM to phrase extractive answers (needs owner approval and RAM headroom).
 - RAG: cross-encoder re-ranking or synonym expansion to reduce paraphrase refusals.
+- Text-to-SQL: LLM SQL generator behind `SqlGenerator` (needs owner approval); evaluate it
+  with the existing 90-case set, keeping the 100% safety gate.
+- Text-to-SQL: persistent audit table (deferred from Phase 3 by decision).
+- Text-to-SQL: non-superuser owner for analytics views (production hardening).
+- Synthetic data: spread cancellation timestamps more realistically (they cluster before
+  the business date today).
 - RAG: grow the evaluation set (more paraphrases, more near-topic unanswerables), ideally
   with questions written by someone other than the corpus author.
