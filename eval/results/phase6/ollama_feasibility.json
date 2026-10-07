@@ -1,0 +1,37 @@
+{
+  "label": "FEASIBILITY MEASUREMENTS — NOT AN EVALUATION OR BENCHMARK RESULT",
+  "status": "EXPERIMENTAL; not selected as the router (ADR-0025)",
+  "date": "2026-10-07",
+  "runtime": {
+    "ollama": "v0.40.0 portable Windows zip (1,468,064,949 bytes, sha256 3623e256762ca89bd6fa99b0cc4106401919ce9df926411673e632e3ea287bb5, verified), installed outside the repository, served on 127.0.0.1:11434",
+    "compute": "CPU only (Ollama GPU discovery timed out; no usable GPU)"
+  },
+  "model": {
+    "name": "qwen2.5:0.5b (Apache-2.0)",
+    "quantization": "Q4_K_M",
+    "parameters": "494.03M",
+    "size_bytes": 397821319,
+    "digest": "a8b0c51577010a279d933d14c2a8ab4b268079d44c5c8830c0a93900f1827c67"
+  },
+  "memory": {
+    "llama_server_peak_working_set_mb": 554,
+    "ollama_server_process_mb": "68-77 (~70)",
+    "free_ram_gb_phase5_feasibility_sampling": "0.45-0.60",
+    "free_ram_gb_phase6_before_closing_apps": "0.37-0.47",
+    "free_ram_gb_phase6_after_owner_closed_apps": "~0.88",
+    "free_ram_gb_phase6_with_model_loaded": "0.34-0.45",
+    "outcome": "Claude Code stopped the Ollama server and the evaluation runner because the system ran critically low on memory during the agent evaluation"
+  },
+  "speed": {
+    "generation_tokens_per_s": "15.9-18.4 (~16-18)",
+    "warm_routing_latency_s": "1.3-5.2 (Phase 5 prompt, ~690 prompt tokens; 14 requests over 7 probe questions)",
+    "cold_request_s": "~7.8 (first request with the v3 prompt, ~1,303 prompt tokens)",
+    "prompt_tokens_per_request_v3": "~1,300 (1,303 measured)",
+    "completion_tokens_per_request": "~20-75"
+  },
+  "routing_quality_dev_only": "see eval/results/llm_prompt_tuning.json (best: 41.0% route accuracy, tool 19/27, invalid 2/83 — TUNED on dev)",
+  "full_evaluation": {
+    "produced": false,
+    "note": "No valid full Ollama evaluation exists. The only Ollama run that completed (dev set, no fallback) ran after the server had been terminated: 97.6% of requests were model errors. It was discarded and is NOT a result. No held-out or adversarial run with the model was produced."
+  }
+}

@@ -29,6 +29,8 @@ are appended at the end; superseded decisions are marked, never deleted.
 | [0022](#adr-0022--langgraph-orchestration-layer-above-existing-services) | LangGraph orchestration layer above existing services | Accepted | 2026-10-07 |
 | [0023](#adr-0023--provider-neutral-llm-interface-deterministic-fake-no-local-llm-yet) | Provider-neutral LLM interface, deterministic fake, no local LLM yet | Accepted | 2026-10-07 |
 | [0024](#adr-0024--agent-security-invariants-and-routing-policy) | Agent security invariants and routing policy | Accepted | 2026-10-07 |
+| [0025](#adr-0025--local-llm-router-via-ollama-experimental-not-selected) | Local LLM router via Ollama: EXPERIMENTAL, not selected | Accepted | 2026-10-07 |
+| [0026](#adr-0026--agent-evaluation-methodology-for-model-routers) | Agent evaluation methodology for model routers | Accepted | 2026-10-07 |
 
 Template for new entries: **Context → Decision → Consequences**, with Status and Date.
 
@@ -736,3 +738,98 @@ Tracing: JSON audit events (`agent.*`) with request hash, route, reason, model n
 capability invoked, tool name, gateway decision code, approval id/status, final status and
 latency. No question text, guest names or unmasked arguments.
 
+---
+
+## ADR-0025 — Local LLM router via Ollama: EXPERIMENTAL, not selected
+
+- Status: Accepted
+- Date: 2026-10-07
+- Amends: ADR-0023 (which predates the code: the interface is
+  `complete_json(system, user, json_schema) -> str`, validated by the Router, not
+  `complete_structured`)
+
+### Context
+Phase 6 asked for a real LLM behind `LLMClient`, at ₹0, without sending data to an
+external provider. The owner chose a measured local trial with RAM freed: Ollama v0.40.0
+(portable, SHA-256 verified, installed outside the repo, bound to 127.0.0.1) and
+`qwen2.5:0.5b` (Apache-2.0, Q4_K_M, 398 MB), the smallest viable instruct model.
+
+### Measured (feasibility, not a benchmark — `eval/results/phase6/ollama_feasibility.json`)
+- Memory: llama-server peak ~554 MB plus the Ollama server ~70 MB. Free RAM was
+  0.45–0.60 GB in the Phase 5 sampling, 0.37–0.47 GB at the start of Phase 6, ~0.88 GB
+  after the owner closed applications, and 0.34–0.45 GB with the model loaded.
+- Speed (CPU only): 16–18 generated tokens/s; warm routing latency 1.3–5.2 s; one cold
+  request ~7.8 s; ~1,300 prompt tokens per request with the final prompt.
+- Quality, dev set only (route-only, 83 cases): the Phase 5 prompt scored 4.8% routing with
+  56/83 invalid outputs; three prompt iterations reached **41.0% routing, tool selection
+  19/27, invalid outputs 2/83**. Errors shifted between routes (e.g. KNOWLEDGE 0/13 and
+  REFUSAL 2/24 at the best prompt) rather than consistently improving. Tuning stopped to
+  avoid overfitting the dev set (`eval/results/llm_prompt_tuning.json`).
+- The full agent evaluation could not complete: the machine ran critically low on memory
+  and the Ollama server and evaluation runner were stopped. **No valid full Ollama
+  held-out or adversarial evaluation exists**; the one partial run (97.6% model errors
+  after the server stopped) was discarded.
+
+### Decision
+- **qwen2.5:0.5b is not selected as the router.** Reasons: (1) hardware — the model plus
+  agent, Postgres and normal desktop use exceed the free memory of this 8 GB machine; (2)
+  quality — ~41% tuned dev routing is far below the deterministic router and below what
+  staff could rely on.
+- **The deterministic router stays the default** (`LLM_PROVIDER=deterministic`).
+- `OllamaLLMClient` is kept as **EXPERIMENTAL** (`LLM_PROVIDER=ollama`, opt-in): standard
+  library only, loopback-only URLs (anything else raises), system proxies bypassed,
+  1 MB response cap, Ollama `format` = the `RouteDecision` JSON schema, temperature 0,
+  truncated/incomplete/HTTP/timeout failures → `LLMError`, token usage recorded.
+- Optional fallback (`LLM_FALLBACK=true`): when the model errors or its output fails
+  validation, the deterministic router routes the request; the trace records
+  `primary_failure` and `fallback_model`. A valid-but-wrong model decision is **not**
+  overridden.
+- Hardening that applies to any model: raw replies > 4,000 chars rejected; tool arguments
+  must be scalars (strings ≤ 500 chars) with snake_case names; model-written clarification
+  text is replaced by a fixed question if it contains markup/links/newlines or repeats any
+  6-word run of the prompt or tool catalog; unknown refusal labels are reported as
+  `not_supported`, never echoed.
+- Prompt minimisation: the model sees route definitions, tool names, descriptions (internal
+  `[READ_ONLY | SENSITIVE]` tags removed) and argument names/types — no validation
+  patterns, staff identity, role, hotel, database, approval or guard details (tested).
+  The tuned prompt lives in `router_prompt_v3.txt` (versioned, byte-for-byte).
+- No other model is introduced, no larger model downloaded, no paid API, no cloud.
+  **No production LLM has been selected.**
+
+### Consequences
+The agent architecture supports a real LLM through `LLMClient` without redesign; a better
+model can be evaluated later with `hotel-agent eval --llm ...` on the frozen held-out and
+adversarial sets. Security never depended on the model: in the live trial the 0.5B model
+picked the mutating refund tool for "Is room 101 clean?" and the ToolGateway rejected the
+invented arguments. Ollama artefacts (~3.7 GB incl. the downloaded zip) remain outside the
+repository in `%LOCALAPPDATA%\hia-ollama` until the owner decides to remove them.
+
+---
+
+## ADR-0026 — Agent evaluation methodology for model routers
+
+- Status: Accepted
+- Date: 2026-10-07
+
+### Decision
+- Three kinds of agent sets, reported separately: **dev/tuned** (`agent_cases.json`),
+  **held-out** (`agent_cases_holdout.json` v1, `agent_cases_holdout_v2.json` v2) and
+  **adversarial** (`agent_cases_adversarial.json`). v2 and adversarial were committed
+  before any LLM prompt tuning; held-out and adversarial sets are never used for tuning
+  and each router configuration runs them once. Tuned accuracy is never reported as
+  generalization.
+- Metrics per set: routing accuracy (+ per-route precision/recall), tool-selection
+  accuracy, clarification precision, refusal correctness, outcome accuracy,
+  unauthorized-action prevention (database snapshot unchanged), prompt-leak rate,
+  prompt-injection success rate (adversarial: DB change, forbidden text or prompt leak),
+  malformed-output, model-error and fallback rates, token usage, latency.
+- An evaluation run is **invalid** if the model runtime was not available for the whole
+  run (e.g. model-error rate from a stopped server). Invalid runs are discarded, never
+  reported or committed.
+
+### Consequences
+Phase 6 deterministic results (reproduced exactly on re-run): dev 92/92; held-out v1
+21/24; held-out v2 22/36 (routing 0.72); adversarial 18/30 (routing 0.67);
+unauthorized-action prevention 1.00, prompt leaks 0, injection success 0/30. The
+deterministic router generalizes poorly to unseen phrasings (mostly misrouting to
+KNOWLEDGE); its misses are wrong but safe.

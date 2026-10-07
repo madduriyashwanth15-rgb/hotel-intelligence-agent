@@ -130,6 +130,16 @@ A change is not "done" until all of the above pass.
   1.00; report held-out results without tuning on them.
 - Add hostile-model (`ScriptedLLM`) tests for any new route or tool path.
 
+### Model routers (Phase 6)
+
+- Tests never call a real LLM; the live Ollama test is opt-in (`HIA_OLLAMA_LIVE=1`).
+- Tune prompts on `agent_cases.json` (dev) only. `agent_cases_holdout*.json` and
+  `agent_cases_adversarial.json` are frozen: run each once per router configuration and
+  report separately; never report tuned accuracy as generalization.
+- A run where the model runtime was unavailable is invalid: discard it, never report it.
+- Model endpoints must be loopback-only; any external or paid provider needs owner
+  approval first. Changing the router prompt means a new `router_prompt_vN.txt`.
+
 ## 9. Synthetic data rules
 
 - All data describes the fictional Grand Hills Resort.

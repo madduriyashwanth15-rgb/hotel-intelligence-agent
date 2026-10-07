@@ -11,7 +11,7 @@ IMPLEMENTED · TESTED · PLANNED · EXPERIMENTAL ([CLAUDE.md §13](../CLAUDE.md#
 | 3 | Controlled Text-to-SQL | ✅ Complete — TESTED (2026-10-07) |
 | 4 | MCP tool server | ✅ Complete — TESTED (2026-10-07; simulated, no auth) |
 | 5 | LangGraph orchestration | ✅ Complete — TESTED (2026-10-07; deterministic router) |
-| 6 | Human approval for sensitive actions | PLANNED — not started |
+| 6 | Real LLM integration and agent evaluation | ✅ Complete — TESTED (2026-10-07; deterministic default, local LLM EXPERIMENTAL, not selected) |
 | 7 | Evaluation and observability hardening | PLANNED — not started |
 | 8 | Production hardening (auth/RBAC, rate limits) | PLANNED — not started |
 
@@ -154,11 +154,32 @@ Definition of Done — all items verified (final run 2026-10-07):
 - [x] Full regression: 634 tests, ruff, mypy; Phase 2-3 evaluations unchanged; docs
       updated; committed
 
-## Phase 6 — Human approval for sensitive actions (PLANNED)
+## Phase 6 — Real LLM integration and agent evaluation ✅ (2026-10-07)
 
-- [ ] `interrupt()`-based approval with Postgres checkpointer
-- [ ] Approve / reject endpoints; approvals survive restart (tested)
-- [ ] Audit trail of requested / approved / rejected actions
+Decisions: ADR-0025 (local Ollama router EXPERIMENTAL, not selected: memory + quality;
+deterministic router stays default), ADR-0026 (evaluation methodology). The human approval
+workflow originally listed here was delivered in Phase 4 (ADR-0019); an `interrupt()`-based
+variant is in the backlog. Not done (out of scope): frontend, cloud, PMS/payments, Phase 7.
+
+Definition of Done — verified 2026-10-07:
+
+- [x] Feasibility measured before adding a model; owner chose a local trial with RAM freed
+- [x] Ollama v0.40.0 (SHA-256 verified, outside the repo, 127.0.0.1) + qwen2.5:0.5b measured:
+      llama-server peak ~554 MB + ~70 MB; 16–18 tok/s; warm 1.3–5.2 s, cold ~7.8 s;
+      ~1,300 prompt tokens/request
+- [x] `OllamaLLMClient` behind `LLMClient.complete_json` (EXPERIMENTAL, loopback only);
+      deterministic router kept as default, baseline and optional fallback
+- [x] Structured-output hardening: invalid JSON, extra fields, invalid routes, missing
+      fields, confidence range, non-scalar/oversized arguments, unknown tools, raw size cap,
+      clarification leak filter, unknown refusal labels not echoed
+- [x] Prompt minimisation (no identity/role/hotel/DB/guard details; tested)
+- [x] Frozen held-out v2 (36) and adversarial (30) sets committed before tuning
+- [x] Dev-only prompt tuning recorded: 4.8% → 41.0% routing, tool 19/27, invalid 2/83
+- [x] Deterministic evaluation on all sets (dev 92/92, held-out v1 21/24, v2 22/36,
+      adversarial 18/30; unauthorized-action prevention 1.00; leaks 0; injection 0/30)
+- [x] Full regression: pytest, ruff, mypy --strict; docs and ADRs updated; committed
+- [ ] **Not achieved:** a valid full Ollama evaluation — the machine ran out of memory and
+      the run was stopped; per owner decision it was not retried (no benchmark claimed)
 
 ## Phase 7 — Evaluation and observability hardening (PLANNED)
 
@@ -177,7 +198,6 @@ Definition of Done — all items verified (final run 2026-10-07):
 - Resolved in Phase 5: the Starlette `httpx2` deprecation warning disappeared once
   `httpx2` (BSD-3, verified in Phase 4) arrived as a LangGraph dependency.
 - No pre-commit hooks or CI yet (CI requires owner approval per ADR-0002).
-- Git repository initialised but **no commits yet**; awaiting owner instruction to commit.
 - Docker Desktop licence applicability not yet confirmed by the owner (ADR-0002).
 
 ## Ideas / backlog (not scheduled, not implemented)
@@ -196,9 +216,12 @@ Record future ideas here instead of implementing them early.
 - Tools: authentication for MCP/CLI principals (Phase 8); approval UI or HTTP endpoints;
   persistent per-principal rate limits; tamper-evident audit store.
 - Tools: unit tests for the `hotel-kb` / `hotel-sql` CLIs (currently verified live only).
-- Agent: real local LLM behind `LLMClient` once memory allows (owner approval; re-run both
-  agent evaluation sets); multi-step plans for mixed requests; semantic router using the
-  existing embedding model; LangGraph `interrupt()` for approvals; hotel-scoped analytics.
+- Agent: evaluate a stronger model behind `LLMClient` only with owner approval and enough
+  free memory (or a verified ₹0 option); run the frozen held-out v2 + adversarial sets once
+  per configuration. Improve the deterministic router's generalization (held-out v2 0.72,
+  adversarial 0.67 routing) — e.g. a semantic router using the existing embedding model —
+  without tuning on held-out data; multi-step plans for mixed requests; LangGraph
+  `interrupt()` for approvals (with a Postgres checkpointer); hotel-scoped analytics.
 - Synthetic data: spread cancellation timestamps more realistically (they cluster before
   the business date today).
 - RAG: grow the evaluation set (more paraphrases, more near-topic unanswerables), ideally

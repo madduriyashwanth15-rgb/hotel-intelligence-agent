@@ -58,7 +58,12 @@ pytest-cov (dev).
 Phase 5 additions: LangGraph (LangSmith client present but tracing forced off; owner
 approved) · deterministic router model (no LLM).
 
-**Current project state: Phases 1–5 are complete (verified 2026-10-07).**
+Phase 6 additions: `OllamaLLMClient` (EXPERIMENTAL, opt-in, loopback only; stdlib HTTP) ·
+optional deterministic fallback · frozen held-out v2 + adversarial agent sets. Ollama
+itself lives outside the repo (`%LOCALAPPDATA%\hia-ollama`) and is not a project
+dependency. **Default router: deterministic. No production LLM selected.**
+
+**Current project state: Phases 1–6 are complete (verified 2026-10-07).**
 
 Implemented and tested:
 - PostgreSQL 16 + pgvector (local Docker, bound to 127.0.0.1)
@@ -91,11 +96,17 @@ Implemented and tested:
   ToolGateway; provider-neutral `LLMClient`, `RouteDecision` schema, deterministic router
   and hostile `ScriptedLLM`; `hotel-agent` CLI; 93-case + 24-case held-out evaluation;
   unauthorized-action prevention 100%. No local LLM (insufficient free RAM).
+- Phase 6: provider-neutral router supports a real LLM; `OllamaLLMClient` + qwen2.5:0.5b
+  trialled — EXPERIMENTAL, not selected (ADR-0025: ~554 MB + ~70 MB RAM on a machine with
+  0.34–0.88 GB free; 41.0% tuned dev routing). No valid full Ollama evaluation exists (run
+  stopped for low memory). Output hardening, fallback, prompt minimisation, clarification
+  leak filter. Deterministic router: dev 92/92, held-out 21/24 and 22/36, adversarial
+  18/30; unauthorized-action prevention 1.00, prompt leaks 0, injection success 0/30.
 
 ## 5. Planned AI architecture
 
-Future phases may introduce: a real (local) LLM behind `LLMClient` (router, RAG answer
-phrasing, SQL generation) after owner approval, approval UI/endpoints, authentication,
+Future phases may introduce: a selected (better) LLM behind `LLMClient` (router, RAG
+answer phrasing, SQL generation) after owner approval and evaluation on the frozen sets, approval UI/endpoints, authentication,
 observability. (Agent orchestration exists as of Phase 5 with a deterministic router.) (The Text-to-SQL safety
 pipeline exists; only a deterministic fake generator is implemented.) (Local embeddings, extractive RAG and
 retrieval evaluation are implemented as of Phase 2.)
@@ -206,6 +217,8 @@ uv run hotel-mcp --staff-code S-FD-01 # MCP stdio server (logs to stderr)
 uv run hotel-ops approvals list --as S-HS-01
 uv run hotel-agent ask "question" --as S-FD-01   # single agent entry point
 uv run hotel-agent eval --output agent_eval.json
+uv run hotel-agent eval --cases holdout_v2|adversarial --output x.json  # frozen: never tune
+# EXPERIMENTAL, owner-approved local model only: --llm ollama [--no-fallback]
 uv run pytest                        # needs Postgres; `model` tests need the model
 uv run pytest --cov=hotel_agent      # coverage
 uv run ruff format --check . && uv run ruff check . && uv run mypy
@@ -244,7 +257,13 @@ uv run ruff format --check . && uv run ruff check . && uv run mypy
   must never gain authorization, approval, SQL or identity fields; tool arguments go to
   the ToolGateway unchanged; never add an approve/execute path reachable from the agent.
 - `hotel_agent.agent` import forces LangSmith tracing off — keep it that way (₹0).
-- `eval/agent_cases_holdout.json` is a held-out set: report its results, do not tune on it.
+- `eval/agent_cases_holdout.json`, `agent_cases_holdout_v2.json` and
+  `agent_cases_adversarial.json` are frozen: report their results, never tune on them.
+- Do not restart Ollama or download/introduce another model without explicit owner
+  instruction (Phase 6 run exhausted RAM). Model URLs must stay loopback-only.
+- An eval run with the model runtime down (high `model_error_rate`) is invalid: discard it.
+- The router prompt is `agent/router_prompt_v3.txt` (byte-exact, dev-tuned); change it
+  only via a new version file and re-run the dev set.
 - `hotel_ops` has a 5-connection limit: share engines (`agent_resources`) across agent
   sessions instead of creating engines per session.
 - Writing regexes through bash heredocs/`python -c` has produced invisible control chars

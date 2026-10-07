@@ -95,9 +95,10 @@ required). The refund engine implements the synthetic POL-CANCEL-001 policy.
 | `POST /data/ask` (operational data Q&A, read-only) | TESTED |
 | Structured JSON logging with request IDs | TESTED |
 | Agent orchestration (LangGraph) with deterministic router; single entry point `hotel-agent` | TESTED |
-| LLM-based router (local model) | PLANNED (needs owner approval and free memory) |
+| Provider-neutral LLM router interface + local Ollama client (qwen2.5:0.5b trialled, not selected) | EXPERIMENTAL (Phase 6) |
+| Agent evaluation: dev, held-out (v1, v2) and adversarial sets with injection/leak metrics | TESTED (Phase 6, deterministic router) |
 | MCP tool server (stdio, simulated operations) | TESTED |
-| Human-in-the-loop approvals | PLANNED (Phase 6) |
+| Human-in-the-loop approvals (CLI/service, out of band) | TESTED (Phase 4) |
 | Evaluation harness and tracing | PLANNED (Phase 7) |
 | Authentication / authorization | PLANNED (Phase 8) |
 
@@ -126,8 +127,9 @@ than guessed numbers.
 
 ## 8. Open questions
 
-- Which local LLM (if any) is viable on this hardware for SQL and tool calling? To be
-  measured in Phase 3+; Ollama is not installed until the owner approves.
+- Which LLM (if any) is viable for routing, SQL and tool calling at ₹0? Phase 6 measured
+  qwen2.5:0.5b locally: too memory-hungry for this machine and ~41% tuned dev routing, so
+  not selected (ADR-0025). Open: a stronger model on more memory, or another ₹0 option.
 - Is extractive answering good enough for staff, or is LLM phrasing worth its RAM/latency
   cost? Needs user feedback.
 - Is Docker Desktop's free licence applicable to the owner? (Fallbacks: Docker Engine in

@@ -4,11 +4,13 @@ An AI copilot for hotel teams: grounded answers from SOPs and policies (RAG),
 controlled questions over operational data (Text-to-SQL), and safe hotel
 operations through tools with human approval.
 
-**Status: Phase 5 complete (a LangGraph agent routes staff requests to grounded
+**Status: Phase 6 complete (a LangGraph agent routes staff requests to grounded
 knowledge retrieval, controlled read-only Text-to-SQL, or MCP tools for simulated hotel
-operations with human approval for every mutating action).** Routing uses a deterministic
-rule-based model — no LLM — and staff identity is not authenticated yet. Not
-production-ready. See [docs/ROADMAP.md](docs/ROADMAP.md).
+operations with human approval for every mutating action).** The architecture supports a
+real LLM behind a provider-neutral interface, but **the default router is deterministic**:
+a local LLM (Ollama, qwen2.5:0.5b) was trialled, is **EXPERIMENTAL** and was not selected
+(too little free RAM, ~41% tuned routing accuracy). No production LLM has been selected,
+and staff identity is not authenticated yet. Not production-ready. See [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ## Project documentation
 
@@ -97,7 +99,15 @@ uv run hotel-agent ask "How many rooms are occupied tonight?" --as S-FD-01
 uv run hotel-agent ask "Create a deep clean task for room 219" --as S-FD-01   # -> pending approval
 uv run hotel-agent ask "What is the status of room 101?" --as S-FD-01 --mcp stdio
 uv run hotel-agent eval --output agent_eval.json
+uv run hotel-agent eval --cases holdout_v2|adversarial --output x.json   # frozen sets
 ```
+
+Evaluation sets and results: [eval/README.md](eval/README.md). Deterministic router:
+dev 92/92 (tuned), held-out 21/24 and 22/36, adversarial 18/30 — every miss safe
+(unauthorized-action prevention 1.00, prompt leaks 0, injection success 0/30).
+
+Experimental local model (opt-in, needs a local Ollama on 127.0.0.1; not a benchmarked
+configuration): `uv run hotel-agent ask "..." --as S-FD-01 --llm ollama`.
 
 The agent only routes. Knowledge, data and tool requests are answered by the existing
 pipelines; tools are called through MCP and the ToolGateway decides authorization. A

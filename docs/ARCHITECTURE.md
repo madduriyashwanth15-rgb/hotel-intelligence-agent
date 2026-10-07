@@ -51,7 +51,7 @@ Principles (status in brackets):
   human channel [TESTED, §2.11]; LangGraph `interrupt()` integration remains PLANNED.
 - **Tests never call an LLM**; real-model evaluation runs as a separate suite.
 
-## 2. Current architecture (Phases 1–5) — TESTED
+## 2. Current architecture (Phases 1–6) — TESTED
 
 ```
 uvicorn ─► FastAPI app (create_app factory)
@@ -117,7 +117,9 @@ alembic ─► migrations/ (0001 core, 0002 read-only, 0003 KB, 0004 analytics, 
 | `src/hotel_agent/agent/schemas.py` | `RouteDecision` structured output (no auth/SQL/identity fields) | TESTED |
 | `src/hotel_agent/agent/llm.py` | Provider-neutral `LLMClient`, `ScriptedLLM` | TESTED |
 | `src/hotel_agent/agent/router.py` | Prompt, model call, schema validation → refusal on failure | TESTED |
-| `src/hotel_agent/agent/fake_llm.py` | `DeterministicRouterLLM` (rule-based stand-in) | TESTED |
+| `src/hotel_agent/agent/fake_llm.py` | `DeterministicRouterLLM` (rule-based; default router) | TESTED |
+| `src/hotel_agent/agent/ollama_llm.py` | `OllamaLLMClient` (local, loopback only) | EXPERIMENTAL (unit-tested; not selected) |
+| `src/hotel_agent/agent/router_prompt_v3.txt` | Router system prompt (dev-tuned) | TESTED |
 | `src/hotel_agent/agent/capabilities.py` | Knowledge/Data/Tool interfaces + adapters over existing services | TESTED |
 | `src/hotel_agent/agent/graph.py` | LangGraph `StateGraph` | TESTED |
 | `src/hotel_agent/agent/service.py` | `HotelAgent` entry point + audit event | TESTED |
@@ -389,6 +391,37 @@ session 0.18 s; first knowledge query 1.9 s (model load); warm p50 — knowledge
 data 27 ms, tool 24–26 ms, mutating→pending 42 ms, clarification/refusal ~3 ms; peak RSS
 327 MB; stdio MCP session + one call ~2.3 s. LangGraph added 14 MB to the venv.
 
+### 2.13 Model routers and evaluation (Phase 6)
+
+The architecture supports a real LLM; **the default router is deterministic**; local LLM
+support is **EXPERIMENTAL**; **no production LLM has been selected** (ADR-0025).
+
+```
+Router(llm, fallback?) ─► llm.complete_json(SYSTEM_PROMPT, catalog + REQUEST_JSON line, schema)
+   │  LLM_PROVIDER=deterministic ─► DeterministicRouterLLM            (default)
+   │  LLM_PROVIDER=ollama        ─► OllamaLLMClient ─► 127.0.0.1:11434 (EXPERIMENTAL)
+   ├─ reply > 4,000 chars / invalid JSON / schema violation ─► invalid_model_output
+   ├─ LLMError (HTTP, timeout, truncated) ─────────────────► model_error
+   │     └─ LLM_FALLBACK=true ─► DeterministicRouterLLM routes the request instead
+   └─ CLARIFICATION text ─► leak/markup filter ─► generic question if it echoes the prompt
+```
+
+Unchanged security boundary: validated decisions go through the same graph, gateway, SQL
+guard and human approval as in Phases 4-5; the model never gains authorization, identity,
+SQL or approval capabilities. Route trace events now carry `model`, `primary_failure`,
+`fallback_model` and token `usage`.
+
+Evaluation (ADR-0026, details in [eval/README.md](../eval/README.md)):
+
+| Router | Dev (tuned) | Held-out v1 | Held-out v2 | Adversarial | Safety |
+|---|---|---|---|---|---|
+| Deterministic (TESTED) | 92/92 | 21/24 (routing 0.875) | 22/36 (routing 0.72) | 18/30 (routing 0.67) | unauthorized-action prevention 1.00, leaks 0, injection 0/30 |
+| Ollama qwen2.5:0.5b (EXPERIMENTAL) | route-only dev tuning: 41.0% routing, tool 19/27, invalid 2/83 | — | — | — | **no valid evaluation** (run stopped for low memory; discarded) |
+
+Ollama feasibility (measured, not a benchmark): llama-server peak ~554 MB + Ollama ~70 MB;
+16–18 tokens/s; warm routing 1.3–5.2 s, cold ~7.8 s; ~1,300 prompt tokens/request; free
+RAM 0.34–0.88 GB depending on open applications.
+
 ## 3. Known limitations (by design for Phase 1)
 
 - Single property; tables carry `hotel_id`, so multi-property is possible later (untested).
@@ -397,6 +430,19 @@ data 27 ms, tool 24–26 ms, mutating→pending 42 ms, clarification/refusal ~3 
 - No authentication yet (local-only, bound to 127.0.0.1). Planned for Phase 8.
 - Read-only role can currently read all tables, including guest contact columns
   (synthetic). Narrowing is a Phase 3 deliverable.
+
+### Phase 6 limitations
+
+- No LLM is selected; qwen2.5:0.5b was too large for the free memory and too inaccurate
+  (41% tuned dev routing). The Ollama client is EXPERIMENTAL and has no valid full
+  evaluation.
+- The deterministic router generalizes poorly (held-out v2 routing 0.72, adversarial
+  0.67); unseen phrasings mostly fall to KNOWLEDGE → `insufficient_evidence` (safe, but
+  unhelpful).
+- The fallback only covers model failures; a valid-but-wrong model decision is executed
+  as routed (downstream controls still apply).
+- The clarification leak filter is heuristic (6-word overlap); it is defence in depth,
+  not a guarantee.
 
 ### Phase 5 limitations
 

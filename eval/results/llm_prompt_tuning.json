@@ -1,0 +1,49 @@
+{
+  "description": "Router prompt tuning history for the local LLM (Phase 6). DEV SET ONLY (eval/agent_cases.json, 83 non-scripted cases, placeholders replaced by fixed synthetic stand-ins, route-only scoring directly against Ollama). These are TUNED numbers, not generalization; held-out v1/v2 and the adversarial set were never used for tuning (v2/adversarial were committed in 586aca0 before tuning began).",
+  "model": "ollama qwen2.5:0.5b (Q4_K_M, 494M params, 397.8 MB, digest a8b0c515...)",
+  "options": {
+    "temperature": 0,
+    "seed": 7,
+    "num_ctx": 4096,
+    "num_predict": 200,
+    "format": "RouteDecision JSON schema"
+  },
+  "iterations": [
+    {
+      "prompt": "v0 (Phase 5 prompt, catalog = names + argument names)",
+      "route_accuracy": 0.048,
+      "route_correct": 4,
+      "tool_correct": "0/27",
+      "invalid_outputs": "56/83",
+      "note": "model put a tool on non-TOOL routes; confidence 100"
+    },
+    {
+      "prompt": "v1 (route definitions, field rules, argument types)",
+      "route_accuracy": 0.205,
+      "route_correct": 17,
+      "tool_correct": "0/27",
+      "invalid_outputs": "24/83",
+      "note": "collapsed to DATA"
+    },
+    {
+      "prompt": "v2 (v1 + 12 worked examples written fresh, not from any dataset)",
+      "route_accuracy": 0.386,
+      "route_correct": 32,
+      "tool_correct": "11/27",
+      "invalid_outputs": "2/83",
+      "note": "KNOWLEDGE recall very low; REFUSAL often routed to TOOL"
+    },
+    {
+      "prompt": "v3 (ordered 10-step checklist + v2 examples) -- ADOPTED",
+      "route_accuracy": 0.41,
+      "route_correct": 34,
+      "tool_correct": "19/27",
+      "invalid_outputs": "2/83",
+      "note": "KNOWLEDGE 0/13, REFUSAL 2/24; biases shifted rather than resolved"
+    }
+  ],
+  "stopped_because": "Three iterations moved errors between routes instead of removing them; ceiling of this 0.5B model judged ~40% route accuracy. Stopped to avoid overfitting the dev set.",
+  "adopted_prompt_sha256_16": "746a83271761bf82",
+  "adopted_prompt_file": "src/hotel_agent/agent/router_prompt_v3.txt",
+  "label": "DEV-SET PROMPT TUNING (route-only, direct to Ollama) — TUNED numbers, not generalization, not a full agent evaluation"
+}
